@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/main.qml</file>
+        <file>qml/NavButton.qml</file>
+        <file>qml/BasePage.qml</file>
+        <file>qml/ControlHardwarePage.qml</file>
+        <file>qml/VideoControlPage.qml</file>
+        <file>qml/SettingsPage.qml</file>
+        <file>qml/HotSpot.qml</file>
+        <file>qml/ConnectionPage.qml</file>
+        <!-- Drop your background image into the project root -->
+        <file alias="background.png">res/background.png</file>
+        <!-- Optional tile icons — fallback text glyphs used if absent -->
+        <!-- <file>icons/control_hardware.png</file> -->
+        <!-- <file>icons/video_control.png</file>    -->
+        <!-- <file>icons/settings.png</file>         -->
+        <!-- <file>icons/connection.png</file>       -->
+    </qresource>
+</RCC>

@@ -1,0 +1,83 @@
+syntax = "proto3";
+package pfas;
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum EventType {
+    EVENT_UNKNOWN      = 0;
+    PAGE_CHANGED       = 1;
+    CONTROL_ACTION     = 2;
+    DWELL_ALERT        = 3;
+    TRACK_UPDATE       = 4;
+    CALIB_UPDATED      = 5;
+    SYSTEM_STATUS      = 6;
+}
+
+// ── Sub-messages ─────────────────────────────────────────────────────────────
+
+message Vec2 {
+    float x = 1;
+    float y = 2;
+}
+
+message BoundingBox {
+    float x      = 1;   // normalised [0..1]
+    float y      = 2;
+    float width  = 3;
+    float height = 4;
+}
+
+message TrackedPerson {
+    uint32      track_id      = 1;
+    BoundingBox bbox          = 2;
+    Vec2        foot_image    = 3;   // image-space foot point
+    Vec2        foot_world    = 4;   // world-space metres
+    bool        is_dwelling   = 5;
+    uint32      dwell_seconds = 6;
+    string      zone          = 7;
+}
+
+message DwellAlertPayload {
+    uint32 track_id  = 1;
+    string zone      = 2;
+    Vec2   location  = 3;   // world metres
+    string iso_time  = 4;
+}
+
+message TrackUpdatePayload {
+    repeated TrackedPerson persons = 1;
+    uint32   frame_number          = 2;
+    uint64   pipeline_ts_ms        = 3;
+}
+
+message ControlActionPayload {
+    string action = 1;
+    string value  = 2;
+}
+
+message CalibUpdatedPayload {
+    repeated float homography = 1;  // 9 floats, row-major 3x3
+    uint32         point_count = 2;
+}
+
+message SystemStatusPayload {
+    string message = 1;
+    uint32 subscriber_count = 2;
+}
+
+// ── Top-level envelope ───────────────────────────────────────────────────────
+
+message ScreenEvent {
+    EventType event_type = 1;
+    uint64    timestamp_ms = 2;   // Unix epoch ms
+    string    source = 3;         // "people-flow-gui"
+
+    oneof payload {
+        DwellAlertPayload    dwell_alert    = 10;
+        TrackUpdatePayload   track_update   = 11;
+        ControlActionPayload control_action = 12;
+        CalibUpdatedPayload  calib_updated  = 13;
+        SystemStatusPayload  system_status  = 14;
+        string               page_changed   = 15;
+    }
+}
