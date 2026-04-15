@@ -1,6 +1,9 @@
 QT += quick quickcontrols2
 
 CONFIG += c++11
+CONFIG += link_pkgconfig
+CONFIG -= thread
+LIBS += -lpthread
 
 TARGET   = gui-app
 TEMPLATE = app
