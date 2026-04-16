@@ -1,0 +1,28 @@
+{
+  "subscriber": {
+    "host": "127.0.0.1",
+    "port": 9000
+  },
+  "cloud": {
+    "endpoint": "http://localhost:8080/api/events",
+    "api_key": "",
+    "max_retries": 3,
+    "timeout_sec": 10,
+    "enabled": true
+  },
+  "log": {
+    "path": "/var/log/eventhub.log"
+  },
+  "gpio_map": {
+    "gpio0":      288,
+    "gpio1":      289,
+    "pwm_enable": 290,
+    "spi_bus":    291
+  },
+  "workers": {
+    "video":  { "enabled": true,  "config": "/etc/aeroboard/video.json",  "binary": "/usr/bin/aeroboard-video"  },
+    "sensor": { "enabled": true,  "config": "/etc/aeroboard/sensor.json", "binary": "/usr/bin/aeroboard-sensor" },
+    "system": { "enabled": true,  "config": "/etc/aeroboard/system.json", "binary": "/usr/bin/aeroboard-system" },
+    "ai":     { "enabled": false, "config": "/etc/aeroboard/ai.json",     "binary": "/usr/bin/aeroboard-ai"     }
+  }
+}

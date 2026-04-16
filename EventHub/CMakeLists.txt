@@ -8,17 +8,22 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBEVENT REQUIRED libevent)
 pkg_check_modules(LIBCURL  REQUIRED libcurl)
 
+include_directories(${CMAKE_SOURCE_DIR}/../EventHub/build)
+
 # Generate protobuf sources
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS proto/screen_event.proto)
 
 add_executable(eventhub
-    main.cpp
+    src/main.cpp
     src/frame_reader.cpp
-    src/hub_client.cpp
     src/cloud_poster.cpp
     src/event_logger.cpp
     src/event_dispatcher.cpp
     ${PROTO_SRCS}
+)
+
+add_library(eventhub_proto
+    screen_event.pb.cc
 )
 
 target_include_directories(eventhub PRIVATE

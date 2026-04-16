@@ -1,26 +1,40 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickWindow>
+#include <google/protobuf/stubs/common.h>
+#include "app_config.h"
+#include "hub_publisher.h"
 #include "backend.h"
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    std::string configPath = "/etc/aeroboard/gui_config.json";
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--config" && i+1 < argc) configPath = argv[++i];
+    }
+
+    GuiConfig cfg;
+    cfg.load(configPath);
+    cfg.dump();
+
     QGuiApplication app(argc, argv);
 
-    // Use OpenGL for QtGraphicalEffects (DropShadow etc.) on Jetson Nano
-    QQuickWindow::setSceneGraphBackend("opengl");
+    HubPublisher publisher(
+        QString::fromStdString(cfg.pub_host),
+        cfg.pub_port);
 
-    Backend backend;
+    Backend backend(publisher, cfg);
 
     QQmlApplicationEngine engine;
-    // Expose backend to all QML files as "backend"
     engine.rootContext()->setContextProperty("backend", &backend);
-
     engine.load(QUrl(QStringLiteral("qrc:/qml/main.qml")));
-    if (engine.rootObjects().isEmpty())
-        return -1;
 
-    return app.exec();
+    if (engine.rootObjects().isEmpty()) return -1;
+
+    int ret = app.exec();
+    google::protobuf::ShutdownProtobufLibrary();
+    return ret;
 }

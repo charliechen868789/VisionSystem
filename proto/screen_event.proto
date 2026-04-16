@@ -1,0 +1,104 @@
+syntax = "proto3";
+package pfas;
+
+// ── Top-level event envelope ─────────────────────────────────────────────────
+message ScreenEvent {
+    uint64    timestamp_ms = 1;
+    EventType event_type   = 2;
+
+    oneof payload {
+        DwellAlertPayload     dwell_alert    = 10;
+        TrackUpdatePayload    track_update   = 11;
+        ControlActionPayload  control_action = 12;
+        CalibUpdatedPayload   calib_updated  = 13;
+        SystemStatusPayload   system_status  = 14;
+        VideoFramePayload    video_frame    = 15;
+        SensorPayload        sensor_data    = 16;
+        SystemInfoPayload    system_info    = 17;
+        AiResultPayload      ai_result      = 18;
+    }
+
+    // page_changed is a plain string — no sub-message needed
+    string page_changed = 20;
+}
+
+enum EventType {
+    EVENT_UNKNOWN  = 0;
+    DWELL_ALERT    = 1;
+    TRACK_UPDATE   = 2;
+    PAGE_CHANGED   = 3;
+    CONTROL_ACTION = 4;
+    CALIB_UPDATED  = 5;
+    SYSTEM_STATUS  = 6;
+    VIDEO_FRAME    = 7;   
+    SENSOR_DATA    = 8;   
+    SYSTEM_INFO    = 9;   
+    AI_RESULT      = 10; 
+}
+
+// ── Payloads ─────────────────────────────────────────────────────────────────
+message Vec2 {
+    float x = 1;
+    float y = 2;
+}
+
+message DwellAlertPayload {
+    uint32 track_id  = 1;
+    string zone      = 2;
+    Vec2   location  = 3;
+    string iso_time  = 4;
+}
+
+message TrackUpdatePayload {
+    uint32          frame_number = 1;
+    repeated Person persons      = 2;
+}
+
+message Person {
+    uint32 id         = 1;
+    Vec2   position   = 2;
+    float  confidence = 3;
+}
+
+message ControlActionPayload {
+    string action = 1;   // e.g. "gpio0", "gpio1", "pwm_enable", "spi_bus"
+    string value  = 2;   // "true" / "false"  or int/float as string
+}
+
+message CalibUpdatedPayload {
+    int32 point_count = 1;
+}
+
+message SystemStatusPayload {
+    string message = 1;
+}
+
+// Add these messages to your existing screen_event.proto
+
+message SensorPayload {
+    string sensor_id = 1;
+    float  value     = 2;
+    string unit      = 3;
+    string iso_time  = 4;
+}
+
+message SystemInfoPayload {
+    float  cpu_percent  = 1;
+    float  mem_percent  = 2;
+    float  temp_celsius = 3;
+    string uptime       = 4;
+}
+
+message AiResultPayload {
+    string model      = 1;
+    string label      = 2;
+    float  confidence = 3;
+    uint32 frame_seq  = 4;
+}
+
+message VideoFramePayload {
+    uint32 width     = 1;
+    uint32 height    = 2;
+    uint32 frame_seq = 3;
+    bytes  jpeg_data = 4;
+}

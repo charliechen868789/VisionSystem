@@ -1,0 +1,24 @@
+{
+  "publisher": {
+    "host": "127.0.0.1",
+    "port": 9000
+  },
+  "defaults": {
+    "brightness": 75,
+    "resolution": 0,
+    "video_source": 0,
+    "gpio0": false,
+    "gpio1": true,
+    "pwm_enable": false,
+    "spi_bus": true,
+    "auto_start": true,
+    "debug_logging": false,
+    "watchdog": true,
+    "low_power": false
+  },
+  "ui": {
+    "fullscreen": true,
+    "theme": "dark",
+    "firmware_version": "v2.4.1"
+  }
+}

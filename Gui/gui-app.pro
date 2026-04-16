@@ -12,10 +12,17 @@ INCLUDEPATH += src
 
 SOURCES += \
     src/main.cpp \
-    src/backend.cpp
+    src/backend.cpp \
+    src/hub_publisher.cpp \
+    src/app_config.cpp
 
 HEADERS += \
-    src/backend.h
+    src/backend.h \
+    src/hub_publisher.h \
+    src/app_config.h
+
+INCLUDEPATH += ..//build
+LIBS += -lzmq -lprotobuf -L../build/ -laeroboard_proto
 
 RESOURCES += resources.qrc
 

@@ -1,0 +1,12 @@
+{
+  "poll_interval_ms": 5000,
+  "publisher": {
+    "host": "127.0.0.1",
+    "port": 9003
+  },
+  "thresholds": {
+    "cpu_warn_percent": 85.0,
+    "mem_warn_percent": 90.0,
+    "temp_warn_celsius": 75.0
+  }
+}

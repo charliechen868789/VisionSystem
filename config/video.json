@@ -1,0 +1,14 @@
+{
+  "source": {
+    "type": "mipi",
+    "device": "/dev/video0",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "publisher": {
+    "host": "127.0.0.1",
+    "port": 9001
+  },
+  "jpeg_quality": 80
+}

@@ -1,0 +1,17 @@
+{
+  "model": {
+    "path": "/opt/models/face_detect.xmodel",
+    "type": "face_detection",
+    "input_width": 640,
+    "input_height": 480
+  },
+  "subscriber": {
+    "host": "127.0.0.1",
+    "port": 9001
+  },
+  "publisher": {
+    "host": "127.0.0.1",
+    "port": 9004
+  },
+  "confidence_threshold": 0.6
+}
