@@ -16,7 +16,7 @@ BasePage {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 260
+            Layout.preferredHeight: 420
             color: "#0d1530"
             radius: 8
             border.color: "#1e3050"

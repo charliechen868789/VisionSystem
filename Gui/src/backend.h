@@ -32,6 +32,22 @@ class Backend : public QObject
     Q_PROPERTY(double  memPercent  READ memPercent  NOTIFY memPercentChanged)
     Q_PROPERTY(QString uptime      READ uptime      NOTIFY uptimeChanged)
 
+    // backend.h — add to Q_PROPERTY block:
+    Q_PROPERTY(int    aiModel          READ aiModel          WRITE setAiModel          NOTIFY aiModelChanged)
+    Q_PROPERTY(double aiConfidence     READ aiConfidence     WRITE setAiConfidence     NOTIFY aiConfidenceChanged)
+    Q_PROPERTY(bool   objectDetection  READ objectDetection  WRITE setObjectDetection  NOTIFY objectDetectionChanged)
+    Q_PROPERTY(bool   faceDetection    READ faceDetection    WRITE setFaceDetection    NOTIFY faceDetectionChanged)
+    Q_PROPERTY(bool   trackingEnabled  READ trackingEnabled  WRITE setTrackingEnabled  NOTIFY trackingEnabledChanged)
+    Q_PROPERTY(bool   poseEstimation   READ poseEstimation   WRITE setPoseEstimation   NOTIFY poseEstimationChanged)
+    Q_PROPERTY(bool   anomalyDetection READ anomalyDetection WRITE setAnomalyDetection NOTIFY anomalyDetectionChanged)
+    Q_PROPERTY(int    frameRate        READ frameRate        WRITE setFrameRate        NOTIFY frameRateChanged)
+    Q_PROPERTY(bool   nightMode        READ nightMode        WRITE setNightMode        NOTIFY nightModeChanged)
+    Q_PROPERTY(bool   flipHorizontal   READ flipHorizontal   WRITE setFlipHorizontal   NOTIFY flipHorizontalChanged)
+    Q_PROPERTY(bool   flipVertical     READ flipVertical     WRITE setFlipVertical     NOTIFY flipVerticalChanged)
+    Q_PROPERTY(bool   recordToFile     READ recordToFile     WRITE setRecordToFile     NOTIFY recordToFileChanged)
+    Q_PROPERTY(bool   rtspOut          READ rtspOut          WRITE setRtspOut          NOTIFY rtspOutChanged)
+    Q_PROPERTY(bool   showOverlays     READ showOverlays     WRITE setShowOverlays     NOTIFY showOverlaysChanged)
+
 public:
     explicit Backend(HubPublisher &publisher,
                      const GuiConfig &cfg,
@@ -69,6 +85,37 @@ public:
     void setAutoStart(bool v);  void setDebugLogging(bool v);
     void setWatchdog(bool v);   void setLowPower(bool v);
 
+    void setAiModel(int v);
+    void setAiConfidence(double v);
+
+    void setObjectDetection(bool v);
+    void setFaceDetection(bool v);
+    void setTrackingEnabled(bool v);
+    void setPoseEstimation(bool v);
+    void setAnomalyDetection(bool v);
+    void setFrameRate(int v);
+    void setNightMode(bool v);
+    void setFlipHorizontal(bool v);
+    void setFlipVertical(bool v);
+    void setRecordToFile(bool v);
+    void setRtspOut(bool v);
+    void setShowOverlays(bool v);
+
+    int    aiModel()          const { return m_aiModel; }
+    double aiConfidence()     const { return m_aiConfidence; }
+    bool   objectDetection()  const { return m_objectDetection; }
+    bool   faceDetection()    const { return m_faceDetection; }
+    bool   trackingEnabled()  const { return m_trackingEnabled; }
+    bool   poseEstimation()   const { return m_poseEstimation; }
+    bool   anomalyDetection() const { return m_anomalyDetection; }
+    int    frameRate()        const { return m_frameRate; }
+    bool   nightMode()        const { return m_nightMode; }
+    bool   flipHorizontal()   const { return m_flipHorizontal; }
+    bool   flipVertical()     const { return m_flipVertical; }
+    bool   recordToFile()     const { return m_recordToFile; }
+    bool   rtspOut()          const { return m_rtspOut; }
+    bool   showOverlays()     const { return m_showOverlays; }
+
 public slots:
     void scanNetwork();
     void requestSystemInfo();
@@ -94,6 +141,21 @@ signals:
     void memPercentChanged();
     void uptimeChanged();
 
+    void aiModelChanged();
+    void aiConfidenceChanged();
+    void objectDetectionChanged();
+    void faceDetectionChanged();
+    void trackingEnabledChanged();
+    void poseEstimationChanged();
+    void anomalyDetectionChanged();
+    void frameRateChanged();
+    void nightModeChanged();
+    void flipHorizontalChanged();
+    void flipVerticalChanged();
+    void recordToFileChanged();
+    void rtspOutChanged();
+    void showOverlaysChanged();
+
 private:
     HubPublisher &m_pub;
     bool    m_gpio0, m_gpio1, m_pwmEnable, m_spiBus;
@@ -112,5 +174,21 @@ private:
     double  m_cpuPercent  = 0.0;
     double  m_memPercent  = 0.0;
     QString m_uptime      = "—";
-};
+
+    // backend.h private members:
+    int    m_aiModel          = 0;
+    double m_aiConfidence     = 0.6;
+    bool   m_objectDetection  = false;
+    bool   m_faceDetection    = false;
+    bool   m_trackingEnabled  = false;
+    bool   m_poseEstimation   = false;
+    bool   m_anomalyDetection = false;
+    int    m_frameRate        = 1;    // index into ["60fps","30fps",...]
+    bool   m_nightMode        = false;
+    bool   m_flipHorizontal   = false;
+    bool   m_flipVertical     = false;
+    bool   m_recordToFile     = false;
+    bool   m_rtspOut          = false;
+    bool   m_showOverlays     = true;
+    };
 #endif

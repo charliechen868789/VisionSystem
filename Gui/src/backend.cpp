@@ -144,3 +144,119 @@ void Backend::onSystemInfoReceived(double cpu, double mem,
     if (m_memPercent  != mem)   { m_memPercent  = mem;    emit memPercentChanged();  }
     if (m_uptime      != uptime){ m_uptime      = uptime; emit uptimeChanged();      }
 }
+
+void Backend::setAiModel(int v)
+{
+    if (m_aiModel == v) return;
+    m_aiModel = v;
+
+    m_pub.publishControlAction("ai_model", QString::number(v));
+
+    emit aiModelChanged();
+}
+
+void Backend::setAiConfidence(double v)
+{
+    if (m_aiConfidence == v) return;
+    m_aiConfidence = v;
+
+    m_pub.publishControlAction("ai_confidence", QString::number(v));
+
+    emit aiConfidenceChanged();
+}
+
+void Backend::setObjectDetection(bool v)
+{
+    if (m_objectDetection == v) return;
+    m_objectDetection = v;
+    m_pub.publishControlAction("object_detection", boolStr(v));
+    emit objectDetectionChanged();
+}
+
+void Backend::setFaceDetection(bool v)
+{
+    if (m_faceDetection == v) return;
+    m_faceDetection = v;
+    m_pub.publishControlAction("face_detection", boolStr(v));
+    emit faceDetectionChanged();
+}
+
+void Backend::setTrackingEnabled(bool v)
+{
+    if (m_trackingEnabled == v) return;
+    m_trackingEnabled = v;
+    m_pub.publishControlAction("tracking_enabled", boolStr(v));
+    emit trackingEnabledChanged();
+}
+
+void Backend::setPoseEstimation(bool v)
+{
+    if (m_poseEstimation == v) return;
+    m_poseEstimation = v;
+    m_pub.publishControlAction("pose_estimation", boolStr(v));
+    emit poseEstimationChanged();
+}
+
+void Backend::setAnomalyDetection(bool v)
+{
+    if (m_anomalyDetection == v) return;
+    m_anomalyDetection = v;
+    m_pub.publishControlAction("anomaly_detection", boolStr(v));
+    emit anomalyDetectionChanged();
+}
+
+void Backend::setFrameRate(int v)
+{
+    if (m_frameRate == v) return;
+    m_frameRate = v;
+    m_pub.publishControlAction("frame_rate", QString::number(v));
+    emit frameRateChanged();
+}
+
+void Backend::setNightMode(bool v)
+{
+    if (m_nightMode == v) return;
+    m_nightMode = v;
+    m_pub.publishControlAction("night_mode", boolStr(v));
+    emit nightModeChanged();
+}
+
+void Backend::setFlipHorizontal(bool v)
+{
+    if (m_flipHorizontal == v) return;
+    m_flipHorizontal = v;
+    m_pub.publishControlAction("flip_horizontal", boolStr(v));
+    emit flipHorizontalChanged();
+}
+
+void Backend::setFlipVertical(bool v)
+{
+    if (m_flipVertical == v) return;
+    m_flipVertical = v;
+    m_pub.publishControlAction("flip_vertical", boolStr(v));
+    emit flipVerticalChanged();
+}
+
+void Backend::setRecordToFile(bool v)
+{
+    if (m_recordToFile == v) return;
+    m_recordToFile = v;
+    m_pub.publishControlAction("record_to_file", boolStr(v));
+    emit recordToFileChanged();
+}
+
+void Backend::setRtspOut(bool v)
+{
+    if (m_rtspOut == v) return;
+    m_rtspOut = v;
+    m_pub.publishControlAction("rtsp_out", boolStr(v));
+    emit rtspOutChanged();
+}
+
+void Backend::setShowOverlays(bool v)
+{
+    if (m_showOverlays == v) return;
+    m_showOverlays = v;
+    m_pub.publishControlAction("show_overlays", boolStr(v));
+    emit showOverlaysChanged();
+}

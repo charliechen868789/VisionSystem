@@ -15,7 +15,22 @@
     "auto_start": true,
     "debug_logging": false,
     "watchdog": true,
-    "low_power": false
+    "low_power": false,
+    "ai_model": 0,
+    "ai_confidence": 0.6,
+    "object_detection": false,
+    "face_detection": false,
+    "tracking_enabled": false,
+    "pose_estimation": false,
+    "anomaly_detection": false,
+    "frame_rate": 1,
+    "night_mode": false,
+    "flip_horizontal": false,
+    "flip_vertical": false,
+    "record_to_file": false,
+    "rtsp_out": false,
+    "show_overlays": true
+  
   },
   "ui": {
     "fullscreen": true,
