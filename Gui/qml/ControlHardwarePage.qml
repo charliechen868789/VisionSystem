@@ -3,7 +3,7 @@ import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.12
 
 BasePage {
-    pageTitle:   "CONTROL HARDWARE"
+    pageTitle: "CONTROL HARDWARE"
     accentColor: "#1a7fd4"
 
     ColumnLayout {
@@ -12,61 +12,58 @@ BasePage {
 
         Text {
             text: "Hardware Controls"
-            font.pixelSize: 18; font.weight: Font.Light
-             color: "#8aaed4"
+            font.pixelSize: 18
+            font.weight: Font.Light
+            color: "#8aaed4"
             renderType: Text.NativeRendering
         }
 
-        // Each row: label + toggle bound to backend property
         Repeater {
             model: [
-                { label: "GPIO Output 0", read: function(){ return backend.gpio0    }, write: function(v){ backend.gpio0     = v } },
-                { label: "GPIO Output 1", read: function(){ return backend.gpio1    }, write: function(v){ backend.gpio1     = v } },
-                { label: "PWM Enable",    read: function(){ return backend.pwmEnable}, write: function(v){ backend.pwmEnable = v } },
-                { label: "SPI Bus",       read: function(){ return backend.spiBus   }, write: function(v){ backend.spiBus    = v } }
+                { label: "GPIO Output 0", action: function(){ backend.gpio0 = !backend.gpio0 } },
+                { label: "GPIO Output 1", action: function(){ backend.gpio1 = !backend.gpio1 } },
+                { label: "PWM Enable",    action: function(){ backend.pwmEnable = !backend.pwmEnable } },
+                { label: "SPI Bus",       action: function(){ backend.spiBus = !backend.spiBus } },
+                { label: "About", type: "page", page: "AboutPage.qml" }
             ]
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                height: 54; radius: 8
-                color: "#0d1530"
-                border.color: "#1e3050"; border.width: 1
+                height: 54
+                radius: 8
 
-                RowLayout {
-                    anchors { fill: parent; leftMargin: 20; rightMargin: 20 }
+                property bool hovered: false
 
-                    Text {
-                        text: modelData.label
-                        font.pixelSize: 16; color: "#c0d0e8"
-                        renderType: Text.NativeRendering
-                        Layout.fillWidth: true
-                    }
+                color: hovered ? "#111c36" : "#0d1530"
+                border.color: hovered ? "#2a9fe4" : "#1e3050"
+                border.width: 1
 
-                    // Toggle pill
-                    Rectangle {
-                        id: tog
-                        width: 54; height: 28; radius: 14
-                        property bool on: modelData.read()
-                        color:        on ? "#1a7fd4" : "#1e2a40"
-                        border.color: on ? "#2a9fe4" : "#2a3a54"
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 130 } }
+                Behavior on color { ColorAnimation { duration: 120 } }
 
-                        Rectangle {
-                            x: parent.on ? parent.width - width - 3 : 3
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 22; height: 22; radius: 11
-                            color: parent.on ? "#ffffff" : "#4a5a70"
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                Text {
+                    anchors.centerIn: parent
+                    text: modelData.label
+                    font.pixelSize: 16
+                    color: hovered ? "#ffffff" : "#c0d0e8"
+                    renderType: Text.NativeRendering
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+
+                    onEntered: hovered = true
+                    onExited: hovered = false
+
+                    onClicked: {
+                        // 1. Check if it's a page navigation
+                        if (modelData.type === "page") {
+                            stackView.push(modelData.page)
                         }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape:  Qt.PointingHandCursor
-                            onClicked: {
-                                tog.on = !tog.on
-                                modelData.write(tog.on)
-                            }
+                        // 2. Otherwise, check if an action exists and run it
+                        else if (modelData.action !== undefined) {
+                            modelData.action()
                         }
                     }
                 }

@@ -24,6 +24,7 @@ bool HubConfig::load(const std::string &path)
         if (j.contains("subscriber")) {
             sub_host = j["subscriber"].value("host", sub_host);
             sub_port = j["subscriber"].value("port", sub_port);
+            gui_reply_port = j.value("gui_reply_port", gui_reply_port);
         }
 
         // cloud

@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-    std::string configPath = "/etc/aeroboard/gui_config.json";
+    std::string configPath = "/media/JetsonNan/Peple_Flow/config/gui_config.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];
@@ -23,8 +23,8 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
 
     HubPublisher publisher(
-        QString::fromStdString(cfg.pub_host),
-        cfg.pub_port);
+        QString::fromStdString(cfg.pub_host), cfg.pub_port,
+        QString::fromStdString(cfg.pub_host), cfg.sub_port);
 
     Backend backend(publisher, cfg);
 

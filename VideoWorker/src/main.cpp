@@ -11,7 +11,7 @@ static void sigHandler(int) { g_running = false; }
 int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-    std::string configPath = "/etc/aeroboard/video.json";
+    std::string configPath = "/media/JetsonNan/Peple_Flow/config/video.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];

@@ -12,6 +12,7 @@ struct WorkerEntry {
 struct HubConfig {
     std::string sub_host = "127.0.0.1";
     uint16_t    sub_port = 9000;
+    uint16_t gui_reply_port = 9005;
 
     std::string cloud_endpoint = "http://localhost:8080/api/events";
     std::string cloud_api_key;

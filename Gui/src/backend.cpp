@@ -18,6 +18,8 @@ Backend::Backend(HubPublisher &publisher, const GuiConfig &cfg, QObject *parent)
     , m_firmwareVersion(QString::fromStdString(cfg.firmware_version))
 {
     qDebug() << "[Backend] initialised from config";
+    connect(&m_pub, &HubPublisher::systemInfoReceived,
+            this,   &Backend::onSystemInfoReceived);
 }
 
 static QString boolStr(bool v) { return v ? "true" : "false"; }
@@ -121,4 +123,24 @@ void Backend::scanNetwork()
     m_wifiIp = m_wifiUp ? QStringLiteral("192.168.1.55") : QStringLiteral("—");
     emit wifiUpChanged();
     emit wifiIpChanged();
+}
+
+// ADD to existing backend.cpp — everything else unchanged
+
+void Backend::requestSystemInfo()
+{
+    qDebug() << "[Backend] requestSystemInfo()";
+    m_pub.publishControlAction("get_system_info", "1");
+}
+
+void Backend::onSystemInfoReceived(double cpu, double mem,
+                                   double temp, QString uptime)
+{
+    qDebug() << "[Backend] systemInfo cpu=" << cpu
+             << "mem=" << mem << "temp=" << temp;
+
+    if (m_temperature != temp)  { m_temperature = temp;   emit temperatureChanged(); }
+    if (m_cpuPercent  != cpu)   { m_cpuPercent  = cpu;    emit cpuPercentChanged();  }
+    if (m_memPercent  != mem)   { m_memPercent  = mem;    emit memPercentChanged();  }
+    if (m_uptime      != uptime){ m_uptime      = uptime; emit uptimeChanged();      }
 }

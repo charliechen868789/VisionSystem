@@ -1,0 +1,18 @@
+# Work Log - 2026-04-16
+
+## 🟢 Completed
+> ✅ Built the software framework
+
+## 🟡 In Progress
+> ⚙️ Add an "About" page to display software and hardware information  
+> ⚙️ The information is provided by the SystemWorker  
+> ⚙️ When the user clicks "About", it triggers a query to retrieve the data  
+
+## 🔴 Issues
+> ❌ N/A
+
+## 🔵 Notes
+> 💡 N/A
+
+## 🟣 Next Steps
+> 🚀 N/A

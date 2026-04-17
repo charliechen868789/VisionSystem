@@ -8,6 +8,7 @@
         <file>qml/SettingsPage.qml</file>
         <file>qml/HotSpot.qml</file>
         <file>qml/ConnectionPage.qml</file>
+        <file>qml/AboutPage.qml</file>
         <!-- Drop your background image into the project root -->
         <file alias="background.png">res/background.png</file>
         <!-- Optional tile icons — fallback text glyphs used if absent -->

@@ -6,7 +6,8 @@ struct GuiConfig {
     // Publisher
     std::string pub_host = "127.0.0.1";
     uint16_t    pub_port = 9000;
-
+    uint16_t    sub_port = 9005;   // EventHub → GUI reply port
+    
     // Hardware defaults
     bool gpio0      = false;
     bool gpio1      = true;

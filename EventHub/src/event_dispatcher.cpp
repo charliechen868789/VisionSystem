@@ -4,8 +4,19 @@
 
 EventDispatcher::EventDispatcher(CloudPoster &poster,
                                  EventLogger &logger,
-                                 const std::unordered_map<std::string, uint32_t> &gpioMap)
-    : m_poster(poster), m_logger(logger), m_gpioMap(gpioMap) {}
+                                 const std::unordered_map<std::string,uint32_t> &gpioMap,
+                                 const std::string &guiReplyHost,
+                                 uint16_t guiReplyPort)
+    : m_poster(poster), m_logger(logger), m_gpioMap(gpioMap)
+    , m_replyCtx(1)
+    , m_replySock(m_replyCtx, zmq::socket_type::pub)
+{
+    std::string ep = "tcp://" + guiReplyHost + ":" + std::to_string(guiReplyPort);
+    m_replySock.bind(ep);
+    fprintf(stdout, "[Dispatcher] GUI reply socket bound to %s\n", ep.c_str());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
 
 void EventDispatcher::dispatch(const pfas::ScreenEvent &ev)
 {
@@ -28,6 +39,13 @@ void EventDispatcher::dispatch(const pfas::ScreenEvent &ev)
     }
 }
 
+long long EventDispatcher::nowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+}
+
+// Update onControlAction to reply on demand:
 void EventDispatcher::onControlAction(const pfas::ScreenEvent &ev)
 {
     const auto &ca = ev.control_action();
@@ -36,16 +54,41 @@ void EventDispatcher::onControlAction(const pfas::ScreenEvent &ev)
     fprintf(stdout, "[CONTROL_ACTION] action=%s  value=%s\n",
             ca.action().c_str(), ca.value().c_str());
 
-    // Log which GPIO number this action maps to (no sysfs write — GPIO handled elsewhere)
+    if (ca.action() == "get_system_info") {
+        if (m_hasSystemInfo) {
+            // Reply with cached system info
+            pfas::ScreenEvent reply;
+            reply.set_timestamp_ms(nowMs());
+            reply.set_event_type(pfas::SYSTEM_INFO);
+            *reply.mutable_system_info() = m_lastSystemInfo;
+            forwardSystemInfo(reply);
+            fprintf(stdout, "[Dispatcher] replied system_info to GUI\n");
+        } else {
+            fprintf(stdout, "[Dispatcher] system_info not yet available\n");
+        }
+        return;
+    }
+
     auto it = m_gpioMap.find(ca.action());
     if (it != m_gpioMap.end()) {
         fprintf(stdout, "[CONTROL_ACTION] mapped to GPIO%u -> %s\n",
                 it->second, value ? "HIGH" : "LOW");
     }
-
     m_logger.logControlAction(ca, value);
 }
 
+// Add helper:
+void EventDispatcher::forwardSystemInfo(const pfas::ScreenEvent &ev)
+{
+    std::string bytes;
+    if (!ev.SerializeToString(&bytes)) return;
+    zmq::message_t msg(bytes.data(), bytes.size());
+    try {
+        m_replySock.send(msg, zmq::send_flags::dontwait);
+    } catch (const zmq::error_t &e) {
+        fprintf(stderr, "[Dispatcher] reply send failed: %s\n", e.what());
+    }
+}
 void EventDispatcher::onDwellAlert(const pfas::ScreenEvent &ev)
 {
     const auto &da = ev.dwell_alert();
@@ -100,15 +143,6 @@ void EventDispatcher::onSensorData(const pfas::ScreenEvent &ev)
     m_logger.logSensorData(s);
 }
 
-void EventDispatcher::onSystemInfo(const pfas::ScreenEvent &ev)
-{
-    const auto &si = ev.system_info();
-    fprintf(stdout, "[SYSTEM_INFO] cpu=%.1f%%  mem=%.1f%%  temp=%.1f°C  up=%s\n",
-            si.cpu_percent(), si.mem_percent(),
-            si.temp_celsius(), si.uptime().c_str());
-    m_logger.logSystemInfo(si);
-}
-
 void EventDispatcher::onAiResult(const pfas::ScreenEvent &ev)
 {
     const auto &ai = ev.ai_result();
@@ -126,4 +160,20 @@ std::string EventDispatcher::protoToJson(const pfas::ScreenEvent &ev)
     opts.always_print_primitive_fields = true;
     google::protobuf::util::MessageToJsonString(ev, &json, opts);
     return json;
+}
+
+// Update onSystemInfo to cache the latest reading:
+void EventDispatcher::onSystemInfo(const pfas::ScreenEvent &ev)
+{
+    const auto &si = ev.system_info();
+    fprintf(stdout, "[SYSTEM_INFO] cpu=%.1f%%  mem=%.1f%%  temp=%.1f°C\n",
+            si.cpu_percent(), si.mem_percent(), si.temp_celsius());
+    m_logger.logSystemInfo(si);
+
+    // Cache it
+    m_lastSystemInfo  = si;
+    m_hasSystemInfo   = true;
+
+    // Always forward to GUI immediately when new data arrives
+    forwardSystemInfo(ev);
 }

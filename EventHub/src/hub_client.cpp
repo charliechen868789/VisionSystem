@@ -9,17 +9,28 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstdio>
+#include <zmq.hpp>
 
 HubClient::HubClient(std::string host, uint16_t port, EventCallback cb)
     : m_host(std::move(host)), m_port(port), m_cb(std::move(cb))
     , m_reader([this](const uint8_t *data, size_t len)
       {
-          // Complete proto frame received — parse and dispatch
-          pfas::ScreenEvent ev;
-          if (ev.ParseFromArray(data, (int)len))
-              m_cb(ev);
-          else
-              fprintf(stderr, "[HubClient] proto parse failed (%zu bytes)\n", len);
+            fprintf(stdout, "[HubClient][FRAME] received frame %zu bytes\n", len);
+
+            pfas::ScreenEvent ev;
+            if (ev.ParseFromArray(data, (int)len)) {
+
+                fprintf(stdout,
+                    "[HubClient][PARSED] type=%d timestamp=%llu\n",
+                    ev.event_type(),
+                    (unsigned long long)ev.timestamp_ms());
+
+                m_cb(ev);  // pass to dispatcher
+
+            } else {
+                fprintf(stderr,
+                    "[HubClient][ERROR] proto parse failed (%zu bytes)\n", len);
+            }
       })
 {}
 
@@ -38,23 +49,22 @@ void HubClient::stop()
     if (m_thread.joinable()) m_thread.join();
 }
 
-void HubClient::runLoop()
-{
-    m_base = event_base_new();
-    ::pipe(m_stopPipe);
-    event *stopEv = event_new(m_base, m_stopPipe[0], EV_READ, onStop, m_base);
-    event_add(stopEv, nullptr);
+void HubClient::runLoop() {
+    zmq::context_t ctx(1);
+    zmq::socket_t sub(ctx, zmq::socket_type::sub);
+    sub.connect("tcp://127.0.0.1:9003");
+    sub.set(zmq::sockopt::subscribe, ""); // Important: Subscribe to all
 
-    connect_();
-    event_base_dispatch(m_base);   // blocks until stop
-
-    if (m_bev)     { bufferevent_free(m_bev);    m_bev    = nullptr; }
-    if (m_retryEv) { event_free(m_retryEv);      m_retryEv= nullptr; }
-    event_free(stopEv);
-    event_base_free(m_base);
-    ::close(m_stopPipe[0]);
-    ::close(m_stopPipe[1]);
-    m_stopPipe[0] = m_stopPipe[1] = -1;
+    while (m_running) {
+        zmq::message_t msg;
+        auto res = sub.recv(msg, zmq::recv_flags::none);
+        if (res) {
+            pfas::ScreenEvent ev;
+            if (ev.ParseFromArray(msg.data(), msg.size())) {
+                m_cb(ev); // This triggers EventDispatcher::onSystemInfo
+            }
+        }
+    }
 }
 
 void HubClient::connect_()
@@ -89,10 +99,14 @@ void HubClient::scheduleRetry()
 void HubClient::onConnect(bufferevent*, short events, void *ctx)
 {
     auto *self = static_cast<HubClient*>(ctx);
+
     if (events & BEV_EVENT_CONNECTED) {
-        fprintf(stdout, "[HubClient] connected\n");
+        fprintf(stdout,
+            "[HubClient][CONNECTED] %s:%u\n",
+            self->m_host.c_str(), self->m_port);
+
     } else if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR)) {
-        fprintf(stderr, "[HubClient] disconnected\n");
+        fprintf(stderr, "[HubClient][DISCONNECTED]\n");
         self->scheduleRetry();
     }
 }
@@ -102,10 +116,14 @@ void HubClient::onRead(bufferevent *bev, void *ctx)
     auto  *self  = static_cast<HubClient*>(ctx);
     evbuffer *in = bufferevent_get_input(bev);
     size_t avail = evbuffer_get_length(in);
+
     if (avail == 0) return;
+
+    fprintf(stdout, "[HubClient][RX RAW] %zu bytes\n", avail);
 
     std::vector<uint8_t> tmp(avail);
     evbuffer_remove(in, tmp.data(), avail);
+
     self->m_reader.feed(tmp.data(), avail);
 }
 

@@ -1,7 +1,8 @@
 {
   "publisher": {
     "host": "127.0.0.1",
-    "port": 9000
+    "port": 9000,
+    "sub_port": 9005
   },
   "defaults": {
     "brightness": 75,

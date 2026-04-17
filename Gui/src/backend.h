@@ -26,6 +26,11 @@ class Backend : public QObject
     Q_PROPERTY(QString wifiIp   READ wifiIp   NOTIFY wifiIpChanged)
     Q_PROPERTY(bool    cmdPort  READ cmdPort  NOTIFY cmdPortChanged)
     Q_PROPERTY(bool    dataPort READ dataPort NOTIFY dataPortChanged)
+    // ── system info properties (NEW) ─────────────────────────────────────────
+    Q_PROPERTY(double  temperature READ temperature NOTIFY temperatureChanged)
+    Q_PROPERTY(double  cpuPercent  READ cpuPercent  NOTIFY cpuPercentChanged)
+    Q_PROPERTY(double  memPercent  READ memPercent  NOTIFY memPercentChanged)
+    Q_PROPERTY(QString uptime      READ uptime      NOTIFY uptimeChanged)
 
 public:
     explicit Backend(HubPublisher &publisher,
@@ -51,6 +56,12 @@ public:
     bool    cmdPort() const { return m_cmdPort; }
     bool    dataPort()const { return m_dataPort; }
 
+    // system info getters (NEW)
+    double  temperature() const { return m_temperature; }
+    double  cpuPercent()  const { return m_cpuPercent; }
+    double  memPercent()  const { return m_memPercent; }
+    QString uptime()      const { return m_uptime; }
+
     void setGpio0(bool v);      void setGpio1(bool v);
     void setPwmEnable(bool v);  void setSpiBus(bool v);
     void setResolution(int v);  void setBrightness(int v);
@@ -60,6 +71,11 @@ public:
 
 public slots:
     void scanNetwork();
+    void requestSystemInfo();
+
+private slots:
+    void onSystemInfoReceived(double cpu, double mem,  // NEW — from HubReceiver
+                              double temp, QString uptime);
 
 signals:
     void gpio0Changed();      void gpio1Changed();
@@ -71,6 +87,12 @@ signals:
     void ethIpChanged();      void ethUpChanged();
     void wifiUpChanged();     void wifiIpChanged();
     void cmdPortChanged();    void dataPortChanged();
+
+    // system info signals (NEW)
+    void temperatureChanged();
+    void cpuPercentChanged();
+    void memPercentChanged();
+    void uptimeChanged();
 
 private:
     HubPublisher &m_pub;
@@ -84,5 +106,11 @@ private:
     QString m_wifiIp   = "—";
     bool    m_cmdPort  = true;
     bool    m_dataPort = true;
+
+    // system info (NEW)
+    double  m_temperature = 0.0;
+    double  m_cpuPercent  = 0.0;
+    double  m_memPercent  = 0.0;
+    QString m_uptime      = "—";
 };
 #endif

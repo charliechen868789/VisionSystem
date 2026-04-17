@@ -14,8 +14,7 @@ static void sigHandler(int) { g_running = false; }
 int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-    std::string configPath = "/etc/aeroboard/hub_config.json";
+    std::string configPath = "/media/JetsonNan/Peple_Flow/config/hub_config.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];
@@ -41,7 +40,8 @@ int main(int argc, char *argv[])
 
     CloudPoster     poster(cc);
     EventLogger     logger(cfg.log_path);
-    EventDispatcher dispatcher(poster, logger, cfg.gpio_map);
+    EventDispatcher dispatcher(poster, logger, cfg.gpio_map,
+                           cfg.sub_host, cfg.gui_reply_port);
     WorkerManager   workers(cfg);
 
     HubClient client(cfg.sub_host, cfg.sub_port,

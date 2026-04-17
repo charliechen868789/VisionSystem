@@ -21,7 +21,7 @@ static float readSysfsTemp(const std::string &path)
 int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-    std::string configPath = "/etc/aeroboard/sensor.json";
+    std::string configPath = "/media/JetsonNan/Peple_Flow/config/sensor.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];
