@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <functional>
 #include <zmq.hpp>
 #include "video_config.h"
 #include "frame_reader.h"
@@ -13,7 +14,9 @@ static volatile bool g_running = true;
 static void sigHandler(int) { g_running = false; }
 
 // ── Settings receiver thread ──────────────────────────────────────────────────
-static void settingsLoop(VideoConfig &cfg, std::atomic<bool> &running)
+static void settingsLoop(VideoConfig &cfg,
+                         std::atomic<bool> &running,
+                         FrameReader &reader)
 {
     zmq::context_t ctx(1);
     zmq::socket_t  pull(ctx, zmq::socket_type::pull);
@@ -40,6 +43,12 @@ static void settingsLoop(VideoConfig &cfg, std::atomic<bool> &running)
 
         const auto &ca = ev.control_action();
         cfg.applyAction(ca.action(), ca.value());
+
+        // Camera switch — restart capture on new device
+        if (ca.action() == "switch_camera") {
+            fprintf(stdout, "[VideoWorker] camera switch → restarting capture\n");
+            reader.restartCapture();
+        }
     }
 
     pull.close();
@@ -66,26 +75,34 @@ int main(int argc, char *argv[])
     signal(SIGINT,  sigHandler);
     signal(SIGTERM, sigHandler);
 
-    // Settings receiver thread
-    std::atomic<bool> running{true};
-    std::thread settingsThread(settingsLoop, std::ref(cfg), std::ref(running));
-
     // Frame publisher
     VideoPublisher pub(cfg.pub_host, cfg.pub_port);
 
-    // Frame reader — reads cfg by reference so settings updates take effect
+    // Frame reader — reads cfg by reference so settings take effect
     FrameReader reader(cfg, [&pub](const pfas::ScreenEvent &ev) {
         pub.publish(ev);
     });
+
+    // Settings receiver thread — needs reader ref for camera switch
+    std::atomic<bool> running{true};
+    std::thread settingsThread(settingsLoop,
+                               std::ref(cfg),
+                               std::ref(running),
+                               std::ref(reader));
 
     reader.start();
 
     fprintf(stdout,
             "[VideoWorker] running\n"
             "  pub      : tcp://%s:%u\n"
-            "  settings : tcp://%s:%u\n",
+            "  settings : tcp://%s:%u\n"
+            "  cameras  : %zu\n"
+            "  active   : %d (%s)\n",
             cfg.pub_host.c_str(), cfg.pub_port,
-            cfg.settings_host.c_str(), cfg.settings_port);
+            cfg.settings_host.c_str(), cfg.settings_port,
+            cfg.cameras.size(),
+            cfg.active_camera,
+            cfg.cameras.empty() ? "none" : cfg.cameras[cfg.active_camera].device.c_str());
 
     while (g_running) {
         struct timespec ts{1, 0};

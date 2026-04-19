@@ -301,3 +301,18 @@ void Backend::registerVideoItem(QObject *item)
     else
         qWarning() << "[Backend] registerVideoItem: cast failed";
 }
+
+void Backend::setStreamEnable(bool enabled)
+{
+    qDebug() << "[Backend] stream_enable =" << enabled;
+    m_pub.publishControlAction("stream_enable", enabled ? "true" : "false");
+}
+
+void Backend::switchCamera(int idx)
+{
+    if (m_activeCamera == idx) return;
+    m_activeCamera = idx;
+    m_pub.publishControlAction("switch_camera", QString::number(idx));
+    emit activeCameraChanged();
+    qDebug() << "[Backend] switch_camera ->" << idx;
+}

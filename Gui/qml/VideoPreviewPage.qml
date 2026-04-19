@@ -10,7 +10,14 @@ BasePage {
     onBack: { stackView.pop() }
     // Register VideoItem with backend when page is ready
     Component.onCompleted: {
-        backend.registerVideoItem(videoSurface)   // pass the object ref
+        Qt.callLater(function() {
+            backend.registerVideoItem(videoSurface)
+            backend.setStreamEnable(true)
+        })
+    }
+
+    Component.onDestruction: {
+        backend.setStreamEnable(false)
     }
     ColumnLayout {
         anchors { fill: parent; margins: 20 }

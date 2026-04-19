@@ -1,5 +1,26 @@
 {
+  "active_camera": 0,
   "brightness": 75,
+  "cameras": [
+    {
+      "device": "/dev/video0",
+      "fps": 30,
+      "height": 720,
+      "id": 0,
+      "name": "Realtek HD Webcam",
+      "type": "usb",
+      "width": 1280
+    },
+    {
+      "device": "/dev/video2",
+      "fps": 30,
+      "height": 720,
+      "id": 1,
+      "name": "HP Wide Vision HD",
+      "type": "usb",
+      "width": 1280
+    }
+  ],
   "flip_horizontal": false,
   "flip_vertical": false,
   "jpeg_quality": 80,
@@ -14,12 +35,5 @@
     "host": "127.0.0.1",
     "port": 9010
   },
-  "show_overlays": true,
-  "source": {
-    "device": "/dev/video0",
-    "fps": 30,
-    "height": 720,
-    "type": "usb",
-    "width": 1280
-  }
+  "show_overlays": true
 }

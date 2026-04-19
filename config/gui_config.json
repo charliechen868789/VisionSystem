@@ -38,5 +38,9 @@
     "fullscreen": true,
     "theme": "dark",
     "firmware_version": "v2.4.1"
-  }
+  },
+  "cameras": [
+      { "id": 0, "name": "Realtek HD Webcam" },
+      { "id": 1, "name": "HP Wide Vision HD" }
+  ]
 }

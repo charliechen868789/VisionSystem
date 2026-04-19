@@ -13,6 +13,8 @@ SettingsForwarder::k_actionWorker = {
     { "record_to_file",    "video" },
     { "rtsp_out",          "video" },
     { "show_overlays",     "video" },
+    { "stream_enable",     "video" },
+    { "switch_camera",     "video" },
     { "ai_model",          "ai"    },
     { "ai_confidence",     "ai"    },
     { "object_detection",  "ai"    },

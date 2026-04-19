@@ -1,14 +1,29 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <cstdint>
 #include <mutex>
+#include <atomic>
+
+struct CameraEntry {
+    int         id     = 0;
+    std::string name   = "Camera";
+    std::string device = "/dev/video0";
+    std::string type   = "usb";
+    uint32_t    width  = 1280;
+    uint32_t    height = 720;
+    uint32_t    fps    = 30;
+};
 
 struct VideoConfig {
-    // Source
-    std::string source_type     = "mipi";
+    std::vector<CameraEntry> cameras;
+    int         active_camera   = 0;
+
+    // Active camera shortcuts (updated when active_camera changes)
+    std::string source_type     = "usb";
     std::string device          = "/dev/video0";
-    uint32_t    width           = 1920;
-    uint32_t    height          = 1080;
+    uint32_t    width           = 1280;
+    uint32_t    height          = 720;
     uint32_t    fps             = 30;
 
     // Image
@@ -23,20 +38,22 @@ struct VideoConfig {
     bool        show_overlays   = true;
     int         jpeg_quality    = 80;
 
-    // Publisher — VideoWorker PUB → EventHub SUB
+    // Publisher
     std::string pub_host        = "127.0.0.1";
     uint16_t    pub_port        = 9001;
 
-    // Settings — EventHub PUSH → VideoWorker PULL
+    // Settings
     std::string settings_host   = "127.0.0.1";
     uint16_t    settings_port   = 9010;
 
-    // Config file path for save()
-    std::string config_path;
+    // Runtime flags
+    std::atomic<bool> streaming_enabled{false};
 
+    std::string config_path;
     mutable std::mutex mtx;
 
     bool load(const std::string &path);
     bool save() const;
     void applyAction(const std::string &action, const std::string &value);
+    void setActiveCamera(int id);   // updates device/width/height/fps shortcuts
 };

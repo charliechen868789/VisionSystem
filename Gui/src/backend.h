@@ -63,7 +63,8 @@ class Backend : public QObject
     Q_PROPERTY(QByteArray videoFrame READ videoFrame NOTIFY videoFrameChanged)
     Q_PROPERTY(QString    aiLabel    READ aiLabel    NOTIFY aiLabelChanged)
     Q_PROPERTY(uint       aiFrameSeq READ aiFrameSeq NOTIFY aiFrameSeqChanged)
-
+    Q_PROPERTY(QStringList cameraList   READ cameraList   NOTIFY cameraListChanged)
+    Q_PROPERTY(int         activeCamera READ activeCamera NOTIFY activeCameraChanged)
 public:
     explicit Backend(HubPublisher &publisher,
                      const GuiConfig &cfg,
@@ -121,6 +122,8 @@ public:
     QByteArray videoFrame()  const { return m_videoFrame; }
     QString    aiLabel()     const { return m_aiLabel; }
     uint       aiFrameSeq()  const { return m_aiFrameSeq; }
+    QStringList cameraList()   const { return m_cameraList; }
+    int         activeCamera() const { return m_activeCamera; }
 
     // Setters
     void setGpio0(bool v);       void setGpio1(bool v);
@@ -141,7 +144,8 @@ public slots:
     void scanNetwork();
     void requestSystemInfo();
     void registerVideoItem(QObject *item);   // called from QML
-
+    void setStreamEnable(bool enabled);    // ADD
+    void switchCamera(int idx);            // ADD
 private slots:
     void onSystemInfoReceived(double cpu, double mem,
                               double temp, QString uptime);
@@ -171,6 +175,8 @@ signals:
     void anomalyDetectionChanged();
     void videoFrameChanged();  void aiLabelChanged();
     void aiFrameSeqChanged();
+    void cameraListChanged();
+    void activeCameraChanged();
 
 private:
     HubPublisher &m_pub;
@@ -220,5 +226,7 @@ private:
     QByteArray m_videoFrame;
     QString    m_aiLabel    = "—";
     uint       m_aiFrameSeq = 0;
+    QStringList m_cameraList;
+    int         m_activeCamera = 0;
 };
 #endif

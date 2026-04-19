@@ -101,4 +101,5 @@ message VideoFramePayload {
     uint32 height    = 2;
     uint32 frame_seq = 3;
     bytes  jpeg_data = 4;
+    int32  camera_id = 5;   // ADD
 }
