@@ -3,17 +3,19 @@
 #include <csignal>
 #include <string>
 #include "hub_config.h"
+#include "hub_client.h"
 #include "cloud_poster.h"
 #include "event_logger.h"
 #include "event_dispatcher.h"
 #include "worker_manager.h"
-#include "hub_client.h"
+
 static volatile bool g_running = true;
 static void sigHandler(int) { g_running = false; }
 
 int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     std::string configPath = "/media/JetsonNan/Peple_Flow/config/hub_config.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -40,11 +42,14 @@ int main(int argc, char *argv[])
 
     CloudPoster     poster(cc);
     EventLogger     logger(cfg.log_path);
-    EventDispatcher dispatcher(poster, logger, cfg.gpio_map,
-                           cfg.sub_host, cfg.gui_reply_port);
+
+    // Pass full cfg so dispatcher can bind all 3 reply sockets
+    EventDispatcher dispatcher(poster, logger, cfg.gpio_map, cfg);
+
     WorkerManager   workers(cfg);
 
-    HubClient client(cfg.sub_host, cfg.sub_port,
+    // Subscribe to GUI port + all enabled worker PUB ports
+    HubClient client(cfg.workerEndpoints(),
         [&dispatcher](const pfas::ScreenEvent &ev) {
             dispatcher.dispatch(ev);
         });
@@ -52,8 +57,8 @@ int main(int argc, char *argv[])
     workers.startAll();
     client.start();
 
-    fprintf(stdout, "[EventHub] running — tcp://%s:%u\n",
-            cfg.sub_host.c_str(), cfg.sub_port);
+    fprintf(stdout, "[EventHub] running — gui sub tcp://%s:%u\n",
+            cfg.sub_host.c_str(), cfg.gui_sub_port);
 
     while (g_running) {
         struct timespec ts{1, 0};
@@ -68,4 +73,3 @@ int main(int argc, char *argv[])
     google::protobuf::ShutdownProtobufLibrary();
     return 0;
 }
-

@@ -23,7 +23,10 @@ void HubReceiver::run()
 {
     zmq::socket_t sub(m_ctx, zmq::socket_type::sub);
     sub.set(zmq::sockopt::subscribe, "");
-    sub.set(zmq::sockopt::rcvtimeo, 500);   // 500 ms poll so we can check m_running
+    sub.set(zmq::sockopt::rcvtimeo, 500);
+
+    // Small delay — lets EventHub finish binding before we connect
+    QThread::msleep(500);
 
     std::string ep = "tcp://" + m_host + ":" + std::to_string(m_port);
     try {
@@ -37,26 +40,62 @@ void HubReceiver::run()
     while (m_running) {
         zmq::message_t msg;
         auto res = sub.recv(msg);
-        if (!res) continue;   // timeout — loop and check m_running
+        if (!res) continue;
 
         pfas::ScreenEvent ev;
-        if (!ev.ParseFromArray(msg.data(), (int)msg.size())) continue;
+        if (!ev.ParseFromArray(msg.data(), (int)msg.size())) {
+            qWarning() << "[HubReceiver] parse failed size=" << msg.size();
+            continue;
+        }
 
-        if (ev.event_type() == pfas::SYSTEM_INFO) {
+        qDebug() << "[HubReceiver] rx type=" << ev.event_type()
+                 << "port=" << m_port;   // debug — remove later
+
+        switch (ev.event_type()) {
+
+        case pfas::SYSTEM_INFO: {
             const auto &si = ev.system_info();
             emit systemInfoReceived(
-                si.cpu_percent(),
-                si.mem_percent(),
+                si.cpu_percent(), si.mem_percent(),
                 si.temp_celsius(),
                 QString::fromStdString(si.uptime()));
+            break;
+        }
+
+        case pfas::VIDEO_FRAME: {
+            const auto &vf = ev.video_frame();
+            qDebug() << "[HubReceiver] VIDEO_FRAME seq=" << vf.frame_seq()
+                     << "size=" << vf.jpeg_data().size();
+            QByteArray jpeg(vf.jpeg_data().data(),
+                            (int)vf.jpeg_data().size());
+            emit videoFrameReceived(vf.width(), vf.height(),
+                                    vf.frame_seq(), jpeg);
+            break;
+        }
+
+        case pfas::AI_RESULT: {
+            const auto &ai = ev.ai_result();
+            emit aiResultReceived(
+                QString::fromStdString(ai.model()),
+                QString::fromStdString(ai.label()),
+                ai.confidence(), ai.frame_seq());
+            break;
+        }
+
+        default:
+            qDebug() << "[HubReceiver] unhandled type=" << ev.event_type();
+            break;
         }
     }
+
     sub.close();
 }
 
 // ── HubPublisher ──────────────────────────────────────────────────────────────
 HubPublisher::HubPublisher(const QString &pubHost, uint16_t pubPort,
-                           const QString &subHost, uint16_t subPort,
+                           const QString &sysHost, uint16_t sysPort,
+                           const QString &vidHost, uint16_t vidPort,
+                           const QString &aiHost,  uint16_t aiPort,
                            QObject *parent)
     : QObject(parent)
     , m_ctx(1)
@@ -72,19 +111,41 @@ HubPublisher::HubPublisher(const QString &pubHost, uint16_t pubPort,
         qWarning() << "[HubPublisher] bind failed:" << e.what();
     }
 
-    // Start background receiver for EventHub→GUI events
-    m_receiver = new HubReceiver(subHost.toStdString(), subPort, m_ctx, this);
-    connect(m_receiver, &HubReceiver::systemInfoReceived,
-            this,       &HubPublisher::systemInfoReceived);
-    m_receiver->start();
-}
+    auto makeReceiver = [&](const QString &host, uint16_t port) {
+        auto *r = new HubReceiver(host.toStdString(), port, m_ctx, this);
+        return r;
+    };
 
+    // System info receiver :9005
+    m_sysReceiver = makeReceiver(sysHost, sysPort);
+    connect(m_sysReceiver, &HubReceiver::systemInfoReceived,
+            this,          &HubPublisher::systemInfoReceived);
+    m_sysReceiver->start();
+
+    // Video frame receiver :9006
+    m_vidReceiver = makeReceiver(vidHost, vidPort);
+    connect(m_vidReceiver, &HubReceiver::videoFrameReceived,
+            this,          &HubPublisher::videoFrameReceived);
+    m_vidReceiver->start();
+
+    // AI result receiver :9007
+    m_aiReceiver = makeReceiver(aiHost, aiPort);
+    connect(m_aiReceiver, &HubReceiver::aiResultReceived,
+            this,         &HubPublisher::aiResultReceived);
+    m_aiReceiver->start();
+}
 HubPublisher::~HubPublisher()
 {
-    if (m_receiver) { m_receiver->stop(); }
+    // Stop all receivers before closing context
+    for (auto *r : {m_sysReceiver, m_vidReceiver, m_aiReceiver}) {
+        if (r) { r->stop(); delete r; }
+    }
+    m_sysReceiver = m_vidReceiver = m_aiReceiver = nullptr;
     m_sock.close();
     m_ctx.close();
 }
+
+
 
 void HubPublisher::publish(const pfas::ScreenEvent &ev)
 {

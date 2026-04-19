@@ -2,7 +2,9 @@
   "publisher": {
     "host": "127.0.0.1",
     "port": 9000,
-    "sub_port": 9005
+    "sub_port": 9005,
+    "vid_port": 9006,
+    "ai_port":  9007    
   },
   "defaults": {
     "brightness": 75,

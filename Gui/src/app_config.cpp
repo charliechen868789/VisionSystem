@@ -19,6 +19,8 @@ bool GuiConfig::load(const std::string &path)
             pub_host = j["publisher"].value("host", pub_host);
             pub_port = j["publisher"].value("port", pub_port);
             sub_port = j["publisher"].value("sub_port", sub_port);
+            vid_port = j["publisher"].value("vid_port", vid_port);
+            ai_port  = j["publisher"].value("ai_port",  ai_port);
         }
         if (j.contains("defaults")) {
             const auto &d = j["defaults"];

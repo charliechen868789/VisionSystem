@@ -20,6 +20,10 @@ Backend::Backend(HubPublisher &publisher, const GuiConfig &cfg, QObject *parent)
     qDebug() << "[Backend] initialised from config";
     connect(&m_pub, &HubPublisher::systemInfoReceived,
             this,   &Backend::onSystemInfoReceived);
+    connect(&m_pub, &HubPublisher::videoFrameReceived,
+            this,   &Backend::onVideoFrameReceived);
+    connect(&m_pub, &HubPublisher::aiResultReceived,
+            this,   &Backend::onAiResultReceived);
 }
 
 static QString boolStr(bool v) { return v ? "true" : "false"; }
@@ -259,4 +263,41 @@ void Backend::setShowOverlays(bool v)
     m_showOverlays = v;
     m_pub.publishControlAction("show_overlays", boolStr(v));
     emit showOverlaysChanged();
+}
+
+
+void Backend::onVideoFrameReceived(uint32_t w, uint32_t h,
+                                   uint32_t seq, QByteArray jpeg)
+{
+    qDebug() << "[Backend] videoFrame seq=" << seq
+             << "videoItem=" << (m_videoItem ? "OK" : "NULL");  // ADD
+    m_videoFrame = jpeg;
+    emit videoFrameChanged();
+    if (m_videoItem)
+        m_videoItem->setFrame(jpeg, seq);
+}
+
+void Backend::onAiResultReceived(QString model, QString label,
+                                  double conf, uint32_t frameSeq)
+{
+    Q_UNUSED(model)
+    m_aiLabel      = label;
+    m_aiConfidence = conf;
+    m_aiFrameSeq   = frameSeq;
+    emit aiLabelChanged();
+    emit aiConfidenceChanged();
+    emit aiFrameSeqChanged();
+
+    // Feed AI result into VideoItem overlay
+    if (m_videoItem)
+        m_videoItem->setAiResult(label, conf, frameSeq);
+}
+
+void Backend::registerVideoItem(QObject *item)
+{
+    m_videoItem = qobject_cast<VideoItem*>(item);
+    if (m_videoItem)
+        qDebug() << "[Backend] VideoItem registered";
+    else
+        qWarning() << "[Backend] registerVideoItem: cast failed";
 }

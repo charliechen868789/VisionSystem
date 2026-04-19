@@ -1,9 +1,11 @@
 {
   "subscriber": {
     "host": "127.0.0.1",
-    "port": 9003
+    "port": 9000
   },
-  "gui_reply_port": 9005,
+  "gui_reply_port":       9005,
+  "gui_video_reply_port": 9006,
+  "gui_ai_reply_port":    9007,
   "cloud": {
     "endpoint": "http://localhost:8080/api/events",
     "api_key": "",
@@ -21,9 +23,33 @@
     "spi_bus":    291
   },
   "workers": {
-    "video":  { "enabled": false,  "config": "/media/JetsonNan/Peple_Flow/config/video.json",  "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-video"  },
-    "sensor": { "enabled": false,  "config": "/media/JetsonNan/Peple_Flow/config/sensor.json", "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-sensor" },
-    "system": { "enabled": true,  "config": "/media/JetsonNan/Peple_Flow/config/system.json", "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-system" },
-    "ai":     { "enabled": false, "config": "/media/JetsonNan/Peple_Flow/config/ai.json",     "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-ai"     }
+    "video": {
+      "enabled": true,
+      "pub_port": 9001,
+      "settings_port": 9010,
+      "config": "/media/JetsonNan/Peple_Flow/config/video.json",
+      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-video"
+    },
+    "sensor": {
+      "enabled": false,
+      "pub_port": 9002,
+      "settings_port": 0,
+      "config": "/media/JetsonNan/Peple_Flow/config/sensor.json",
+      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-sensor"
+    },
+    "system": {
+      "enabled": true,
+      "pub_port": 9003,
+      "settings_port": 0,
+      "config": "/media/JetsonNan/Peple_Flow/config/system.json",
+      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-system"
+    },
+    "ai": {
+      "enabled": false,
+      "pub_port": 9004,
+      "settings_port": 9011,
+      "config": "/media/JetsonNan/Peple_Flow/config/ai.json",
+      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-ai"
+    }
   }
 }

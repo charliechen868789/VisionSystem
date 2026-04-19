@@ -41,7 +41,8 @@ add_executable(eventhub
     EventHub/src/cloud_poster.cpp
     EventHub/src/hub_config.cpp
     EventHub/src/frame_reader.cpp
-    EventHub/src/worker_manager.cpp)
+    EventHub/src/worker_manager.cpp
+    EventHub/src/settings_forwarder.cpp)
 target_include_directories(eventhub PRIVATE EventHub/src ${COMMON_INCLUDES})
 target_link_libraries(eventhub PRIVATE ${COMMON_LIBS})
 

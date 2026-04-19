@@ -16,6 +16,10 @@ public:
 
 signals:
     void systemInfoReceived(double cpu, double mem, double temp, QString uptime);
+    void videoFrameReceived(uint32_t width, uint32_t height,
+                            uint32_t seq, QByteArray jpeg);
+    void aiResultReceived  (QString model, QString label,
+                            double confidence, uint32_t frameSeq);
 
 protected:
     void run() override;
@@ -31,11 +35,15 @@ class HubPublisher : public QObject
 {
     Q_OBJECT
 public:
-    explicit HubPublisher(const QString &pubHost = "127.0.0.1",
-                          uint16_t       pubPort = 9000,
-                          const QString &subHost = "127.0.0.1",
-                          uint16_t       subPort = 9005,
-                          QObject       *parent  = nullptr);
+    explicit HubPublisher(const QString &pubHost  = "127.0.0.1",
+                          uint16_t       pubPort  = 9000,
+                          const QString &sysHost  = "127.0.0.1",
+                          uint16_t       sysPort  = 9005,
+                          const QString &vidHost  = "127.0.0.1",
+                          uint16_t       vidPort  = 9006,
+                          const QString &aiHost   = "127.0.0.1",
+                          uint16_t       aiPort   = 9007,
+                          QObject       *parent   = nullptr);
     ~HubPublisher();
 
     bool isConnected() const { return m_connected; }
@@ -45,10 +53,16 @@ public:
 
 signals:
     void systemInfoReceived(double cpu, double mem, double temp, QString uptime);
+    void videoFrameReceived(uint32_t width, uint32_t height,
+                            uint32_t seq, QByteArray jpeg);
+    void aiResultReceived  (QString model, QString label,
+                            double confidence, uint32_t frameSeq);
 
 private:
     zmq::context_t m_ctx;
     zmq::socket_t  m_sock;
     bool           m_connected = false;
-    HubReceiver   *m_receiver  = nullptr;
+    HubReceiver    *m_sysReceiver = nullptr;
+    HubReceiver    *m_vidReceiver = nullptr;
+    HubReceiver    *m_aiReceiver  = nullptr;
 };

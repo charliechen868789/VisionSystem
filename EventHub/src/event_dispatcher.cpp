@@ -2,21 +2,82 @@
 #include <google/protobuf/util/json_util.h>
 #include <cstdio>
 
-EventDispatcher::EventDispatcher(CloudPoster &poster,
-                                 EventLogger &logger,
+EventDispatcher::EventDispatcher(CloudPoster  &poster,
+                                 EventLogger  &logger,
                                  const std::unordered_map<std::string,uint32_t> &gpioMap,
-                                 const std::string &guiReplyHost,
-                                 uint16_t guiReplyPort)
-    : m_poster(poster), m_logger(logger), m_gpioMap(gpioMap)
+                                 const HubConfig &cfg)
+    : m_poster(poster)
+    , m_logger(logger)
+    , m_settings(cfg)
+    , m_gpioMap(gpioMap)
     , m_replyCtx(1)
-    , m_replySock(m_replyCtx, zmq::socket_type::pub)
+    , m_replySock     (m_replyCtx, zmq::socket_type::pub)
+    , m_videoReplySock(m_replyCtx, zmq::socket_type::pub)
+    , m_aiReplySock   (m_replyCtx, zmq::socket_type::pub)
 {
-    std::string ep = "tcp://" + guiReplyHost + ":" + std::to_string(guiReplyPort);
-    m_replySock.bind(ep);
-    fprintf(stdout, "[Dispatcher] GUI reply socket bound to %s\n", ep.c_str());
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    auto bindSock = [&](zmq::socket_t &sock, uint16_t port, const char *label) {
+        std::string ep = "tcp://" + cfg.sub_host + ":" + std::to_string(port);
+        sock.bind(ep);
+        fprintf(stdout, "[Dispatcher] %s reply socket bound to %s\n",
+                label, ep.c_str());
+    };
+    bindSock(m_replySock,      cfg.gui_reply_port,       "system");
+    bindSock(m_videoReplySock, cfg.gui_video_reply_port, "video");
+    bindSock(m_aiReplySock,    cfg.gui_ai_reply_port,    "ai");
 }
+
+EventDispatcher::~EventDispatcher()
+{
+    m_replySock.close();
+    m_videoReplySock.close();
+    m_aiReplySock.close();
+    m_replyCtx.close();
+}
+
+uint64_t EventDispatcher::nowMs()
+{
+    using namespace std::chrono;
+    return (uint64_t)duration_cast<milliseconds>(
+        system_clock::now().time_since_epoch()).count();
+}
+
+// ── forward helpers ───────────────────────────────────────────────────────────
+
+static void sendOnSock(zmq::socket_t &sock,
+                       const pfas::ScreenEvent &ev,
+                       const char *label)
+{
+    std::string bytes;
+    if (!ev.SerializeToString(&bytes)) {
+        fprintf(stderr, "[Dispatcher] serialize failed (%s)\n", label);
+        return;
+    }
+    zmq::message_t msg(bytes.data(), bytes.size());
+    try {
+        sock.send(msg, zmq::send_flags::dontwait);
+        fprintf(stdout, "[Dispatcher] -> GUI %s type=%d\n",
+                label, ev.event_type());
+    } catch (const zmq::error_t &e) {
+        fprintf(stderr, "[Dispatcher] %s send failed: %s\n", label, e.what());
+    }
+}
+
+void EventDispatcher::forwardToGui(const pfas::ScreenEvent &ev)
+{
+    sendOnSock(m_replySock, ev, "system:9005");
+}
+
+void EventDispatcher::forwardVideoToGui(const pfas::ScreenEvent &ev)
+{
+    sendOnSock(m_videoReplySock, ev, "video:9006");
+}
+
+void EventDispatcher::forwardAiToGui(const pfas::ScreenEvent &ev)
+{
+    sendOnSock(m_aiReplySock, ev, "ai:9007");
+}
+
+// ── dispatch ──────────────────────────────────────────────────────────────────
 
 void EventDispatcher::dispatch(const pfas::ScreenEvent &ev)
 {
@@ -39,13 +100,8 @@ void EventDispatcher::dispatch(const pfas::ScreenEvent &ev)
     }
 }
 
-long long EventDispatcher::nowMs() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-    ).count();
-}
+// ── handlers ──────────────────────────────────────────────────────────────────
 
-// Update onControlAction to reply on demand:
 void EventDispatcher::onControlAction(const pfas::ScreenEvent &ev)
 {
     const auto &ca = ev.control_action();
@@ -56,12 +112,11 @@ void EventDispatcher::onControlAction(const pfas::ScreenEvent &ev)
 
     if (ca.action() == "get_system_info") {
         if (m_hasSystemInfo) {
-            // Reply with cached system info
             pfas::ScreenEvent reply;
             reply.set_timestamp_ms(nowMs());
             reply.set_event_type(pfas::SYSTEM_INFO);
             *reply.mutable_system_info() = m_lastSystemInfo;
-            forwardSystemInfo(reply);
+            forwardToGui(reply);
             fprintf(stdout, "[Dispatcher] replied system_info to GUI\n");
         } else {
             fprintf(stdout, "[Dispatcher] system_info not yet available\n");
@@ -70,25 +125,48 @@ void EventDispatcher::onControlAction(const pfas::ScreenEvent &ev)
     }
 
     auto it = m_gpioMap.find(ca.action());
-    if (it != m_gpioMap.end()) {
-        fprintf(stdout, "[CONTROL_ACTION] mapped to GPIO%u -> %s\n",
+    if (it != m_gpioMap.end())
+        fprintf(stdout, "[CONTROL_ACTION] GPIO%u -> %s\n",
                 it->second, value ? "HIGH" : "LOW");
-    }
+
+    m_settings.forward(ca);
     m_logger.logControlAction(ca, value);
 }
 
-// Add helper:
-void EventDispatcher::forwardSystemInfo(const pfas::ScreenEvent &ev)
+void EventDispatcher::onSystemInfo(const pfas::ScreenEvent &ev)
 {
-    std::string bytes;
-    if (!ev.SerializeToString(&bytes)) return;
-    zmq::message_t msg(bytes.data(), bytes.size());
-    try {
-        m_replySock.send(msg, zmq::send_flags::dontwait);
-    } catch (const zmq::error_t &e) {
-        fprintf(stderr, "[Dispatcher] reply send failed: %s\n", e.what());
-    }
+    const auto &si = ev.system_info();
+    fprintf(stdout, "[SYSTEM_INFO] cpu=%.1f%%  mem=%.1f%%  temp=%.1f°C\n",
+            si.cpu_percent(), si.mem_percent(), si.temp_celsius());
+    m_logger.logSystemInfo(si);
+
+    m_lastSystemInfo = si;
+    m_hasSystemInfo  = true;
+
+    forwardToGui(ev);
 }
+
+void EventDispatcher::onVideoFrame(const pfas::ScreenEvent &ev)
+{
+    const auto &vf = ev.video_frame();
+    fprintf(stdout, "[VIDEO_FRAME] seq=%u  %ux%u  %zu bytes\n",
+            vf.frame_seq(), vf.width(), vf.height(),
+            vf.jpeg_data().size());
+
+    forwardVideoToGui(ev);
+}
+
+void EventDispatcher::onAiResult(const pfas::ScreenEvent &ev)
+{
+    const auto &ai = ev.ai_result();
+    fprintf(stdout, "[AI_RESULT] model=%s  label=%s  conf=%.3f  frame=%u\n",
+            ai.model().c_str(), ai.label().c_str(),
+            ai.confidence(), ai.frame_seq());
+    m_logger.logAiResult(ai);
+
+    forwardAiToGui(ev);
+}
+
 void EventDispatcher::onDwellAlert(const pfas::ScreenEvent &ev)
 {
     const auto &da = ev.dwell_alert();
@@ -126,30 +204,12 @@ void EventDispatcher::onSystemStatus(const pfas::ScreenEvent &ev)
             ev.system_status().message().c_str());
 }
 
-void EventDispatcher::onVideoFrame(const pfas::ScreenEvent &ev)
-{
-    const auto &vf = ev.video_frame();
-    fprintf(stdout, "[VIDEO_FRAME] seq=%u  %ux%u  %zu bytes\n",
-            vf.frame_seq(), vf.width(), vf.height(),
-            vf.jpeg_data().size());
-}
-
 void EventDispatcher::onSensorData(const pfas::ScreenEvent &ev)
 {
     const auto &s = ev.sensor_data();
-    fprintf(stdout, "[SENSOR] id=%s  %.3f %s  @ %s\n",
-            s.sensor_id().c_str(), s.value(),
-            s.unit().c_str(), s.iso_time().c_str());
+    fprintf(stdout, "[SENSOR] id=%s  %.3f %s\n",
+            s.sensor_id().c_str(), s.value(), s.unit().c_str());
     m_logger.logSensorData(s);
-}
-
-void EventDispatcher::onAiResult(const pfas::ScreenEvent &ev)
-{
-    const auto &ai = ev.ai_result();
-    fprintf(stdout, "[AI_RESULT] model=%s  label=%s  conf=%.3f  frame=%u\n",
-            ai.model().c_str(), ai.label().c_str(),
-            ai.confidence(), ai.frame_seq());
-    m_logger.logAiResult(ai);
 }
 
 std::string EventDispatcher::protoToJson(const pfas::ScreenEvent &ev)
@@ -160,20 +220,4 @@ std::string EventDispatcher::protoToJson(const pfas::ScreenEvent &ev)
     opts.always_print_primitive_fields = true;
     google::protobuf::util::MessageToJsonString(ev, &json, opts);
     return json;
-}
-
-// Update onSystemInfo to cache the latest reading:
-void EventDispatcher::onSystemInfo(const pfas::ScreenEvent &ev)
-{
-    const auto &si = ev.system_info();
-    fprintf(stdout, "[SYSTEM_INFO] cpu=%.1f%%  mem=%.1f%%  temp=%.1f°C\n",
-            si.cpu_percent(), si.mem_percent(), si.temp_celsius());
-    m_logger.logSystemInfo(si);
-
-    // Cache it
-    m_lastSystemInfo  = si;
-    m_hasSystemInfo   = true;
-
-    // Always forward to GUI immediately when new data arrives
-    forwardSystemInfo(ev);
 }

@@ -1,14 +1,25 @@
 {
-  "source": {
-    "type": "mipi",
-    "device": "/dev/video0",
-    "width": 1920,
-    "height": 1080,
-    "fps": 30
-  },
+  "brightness": 75,
+  "flip_horizontal": false,
+  "flip_vertical": false,
+  "jpeg_quality": 80,
+  "night_mode": false,
   "publisher": {
     "host": "127.0.0.1",
     "port": 9001
   },
-  "jpeg_quality": 80
+  "record_to_file": false,
+  "rtsp_out": true,
+  "settings": {
+    "host": "127.0.0.1",
+    "port": 9010
+  },
+  "show_overlays": true,
+  "source": {
+    "device": "/dev/video0",
+    "fps": 30,
+    "height": 720,
+    "type": "usb",
+    "width": 1280
+  }
 }

@@ -1,17 +1,18 @@
 {
   "model": {
-    "path": "/opt/models/face_detect.xmodel",
-    "type": "face_detection",
-    "input_width": 640,
-    "input_height": 480
+    "path":         "/opt/models/general.xmodel",
+    "type":         "general",
+    "input_width":  640,
+    "input_height": 480,
+    "index":        0
   },
-  "subscriber": {
-    "host": "127.0.0.1",
-    "port": 9001
-  },
-  "publisher": {
-    "host": "127.0.0.1",
-    "port": 9004
-  },
-  "confidence_threshold": 0.6
+  "subscriber":  { "host": "127.0.0.1", "port": 9001 },
+  "publisher":   { "host": "127.0.0.1", "port": 9004 },
+  "settings":    { "host": "127.0.0.1", "port": 9011 },
+  "confidence_threshold": 0.6,
+  "object_detection":  false,
+  "face_detection":    false,
+  "tracking_enabled":  false,
+  "pose_estimation":   false,
+  "anomaly_detection": false
 }

@@ -1,4 +1,4 @@
-QT += quick quickcontrols2
+QT += quick quickcontrols2 gui
 
 CONFIG += c++11
 CONFIG += link_pkgconfig
@@ -14,12 +14,14 @@ SOURCES += \
     src/main.cpp \
     src/backend.cpp \
     src/hub_publisher.cpp \
-    src/app_config.cpp
+    src/app_config.cpp \
+    src/video_item.cpp 
 
 HEADERS += \
     src/backend.h \
     src/hub_publisher.h \
-    src/app_config.h
+    src/app_config.h \ 
+    src/video_item.h
 
 INCLUDEPATH += ..//build
 LIBS += -lzmq -lprotobuf -L../build/ -laeroboard_proto

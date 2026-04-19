@@ -1,50 +1,30 @@
 #pragma once
-#include <event2/event.h>
-#include <event2/util.h>
 #include <string>
+#include <vector>
 #include <functional>
 #include <atomic>
 #include <thread>
-#include "frame_reader.h"
+#include <zmq.hpp>
 #include "screen_event.pb.h"
-
-struct event_base;
-struct bufferevent;
-struct event;
 
 class HubClient
 {
 public:
     using EventCallback = std::function<void(const pfas::ScreenEvent&)>;
 
-    HubClient(std::string host, uint16_t port, EventCallback cb);
+    // Takes list of endpoints to subscribe to e.g.
+    // {"tcp://127.0.0.1:9000", "tcp://127.0.0.1:9001", "tcp://127.0.0.1:9003"}
+    HubClient(std::vector<std::string> endpoints, EventCallback cb);
     ~HubClient();
 
-    void start();   // launches background thread
+    void start();
     void stop();
 
 private:
-    // libevent callbacks
-    static void onConnect(bufferevent*, short events, void *ctx);
-    static void onRead   (bufferevent*, void *ctx);
-    static void onStop   (evutil_socket_t, short, void *ctx);
-    static void onRetry  (evutil_socket_t, short, void *ctx);
-
-    void connect_();
-    void scheduleRetry();
     void runLoop();
 
-    std::string    m_host;
-    uint16_t       m_port;
-    EventCallback  m_cb;
-
-    event_base    *m_base      = nullptr;
-    bufferevent   *m_bev       = nullptr;
-    event         *m_retryEv   = nullptr;
-    int            m_stopPipe[2] = {-1,-1};
-
-    std::thread    m_thread;
-    FrameReader    m_reader;
-
-    std::atomic<bool> m_running{false};
+    std::vector<std::string> m_endpoints;
+    EventCallback            m_cb;
+    std::atomic<bool>        m_running{false};
+    std::thread              m_thread;
 };
