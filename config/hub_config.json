@@ -45,7 +45,7 @@
       "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-system"
     },
     "ai": {
-      "enabled": false,
+      "enabled": true,
       "pub_port": 9004,
       "settings_port": 9011,
       "config": "/media/JetsonNan/Peple_Flow/config/ai.json",

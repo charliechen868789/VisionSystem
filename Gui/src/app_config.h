@@ -1,7 +1,11 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <cstdint>
-
+struct CameraInfo {
+    int         id   = 0;
+    std::string name = "Camera";
+};
 struct GuiConfig {
     // Publisher
     std::string pub_host = "127.0.0.1";
@@ -30,7 +34,7 @@ struct GuiConfig {
     bool        fullscreen       = true;
     std::string theme            = "dark";
     std::string firmware_version = "v2.4.1";
-
+    std::vector<CameraInfo> cameras;
     bool load(const std::string &path);
     void dump() const;
 };

@@ -149,8 +149,8 @@ void FrameReader::loop()
 
             // Skip frame if GUI not watching
             if (!m_cfg.streaming_enabled.load()) {
-                fprintf(stdout, "[FrameReader] stream disabled — dropping frame %u\n",
-                        m_seq);
+                //fprintf(stdout, "[FrameReader] stream disabled — dropping frame %u\n",
+                //        m_seq);
                 continue;
             }
 

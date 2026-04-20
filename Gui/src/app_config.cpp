@@ -41,6 +41,22 @@ bool GuiConfig::load(const std::string &path)
             theme            = j["ui"].value("theme",            theme);
             firmware_version = j["ui"].value("firmware_version", firmware_version);
         }
+
+        if (j.contains("cameras")) {
+            for (const auto &c : j["cameras"]) {
+                CameraInfo ci;
+                ci.id   = c.value("id",   0);
+                ci.name = c.value("name", "Camera");
+                cameras.push_back(ci);
+            }
+        }
+        // Default if not in config
+        if (cameras.empty()) {
+            CameraInfo c0; c0.id = 0; c0.name = "HP Wide Vision HD";
+            CameraInfo c1; c1.id = 1; c1.name = "HD Webcam (Realtek)";
+            cameras.push_back(c0);
+            cameras.push_back(c1);
+        }
     } catch (const json::exception &e) {
         fprintf(stderr, "[GuiConfig] parse error: %s\n", e.what());
         return false;

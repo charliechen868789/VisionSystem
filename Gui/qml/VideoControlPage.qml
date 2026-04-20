@@ -304,10 +304,12 @@ BasePage {
             SectionLabel { text: "VIDEO  SOURCE" }
 
             DropdownRow {
-                label: "Source"
-                list: ["MIPI CSI-2", "USB Camera", "RTSP Stream", "File Playback"]
-                selected: backend.videoSource
-                onSelected_changed: function(idx) { backend.videoSource = idx }
+                label: "Camera"
+                list: backend.cameraList
+                selected: backend.activeCamera
+                onSelected_changed: function(idx) {
+                    backend.switchCamera(idx)
+                }
             }
 
             DropdownRow {

@@ -18,6 +18,12 @@ Backend::Backend(HubPublisher &publisher, const GuiConfig &cfg, QObject *parent)
     , m_firmwareVersion(QString::fromStdString(cfg.firmware_version))
 {
     qDebug() << "[Backend] initialised from config";
+    for (const auto &c : cfg.cameras)
+        m_cameraList << QString::fromStdString(c.name);
+
+    if (m_cameraList.isEmpty()) {
+        m_cameraList << "HP Wide Vision HD" << "HD Webcam (Realtek)";
+    }
     connect(&m_pub, &HubPublisher::systemInfoReceived,
             this,   &Backend::onSystemInfoReceived);
     connect(&m_pub, &HubPublisher::videoFrameReceived,

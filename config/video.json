@@ -7,7 +7,7 @@
       "fps": 30,
       "height": 720,
       "id": 0,
-      "name": "Realtek HD Webcam",
+      "name": "HP Wide Vision HD",
       "type": "usb",
       "width": 1280
     },
@@ -16,7 +16,7 @@
       "fps": 30,
       "height": 720,
       "id": 1,
-      "name": "HP Wide Vision HD",
+      "name": "HD Webcam (Realtek)",
       "type": "usb",
       "width": 1280
     }
@@ -30,7 +30,7 @@
     "port": 9001
   },
   "record_to_file": false,
-  "rtsp_out": true,
+  "rtsp_out": false,
   "settings": {
     "host": "127.0.0.1",
     "port": 9010
