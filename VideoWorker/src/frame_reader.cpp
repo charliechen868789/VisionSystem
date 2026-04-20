@@ -69,8 +69,13 @@ void FrameReader::loop()
             fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
             fmt.fmt.pix.field       = V4L2_FIELD_NONE;
             if (ioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
-                fprintf(stderr, "[FrameReader] VIDIOC_S_FMT failed\n");
-                close(fd); useV4L2 = false;
+                fprintf(stderr, "[FrameReader] MJPEG not supported, trying YUYV\n");
+                fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+                if (ioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
+                    fprintf(stderr, "[FrameReader] VIDIOC_S_FMT failed\n");
+                    close(fd);
+                    useV4L2 = false;
+                }
             }
         }
 
@@ -90,7 +95,7 @@ void FrameReader::loop()
                 ioctl(fd, VIDIOC_QUERYBUF, &buf);
                 buffers[i].length = buf.length;
                 buffers[i].start  = mmap(nullptr, buf.length,
-                                         PROT_READ|PROT_WRITE,
+                                         PROT_READ | PROT_WRITE,
                                          MAP_SHARED, fd, buf.m.offset);
                 ioctl(fd, VIDIOC_QBUF, &buf);
             }
@@ -105,35 +110,38 @@ void FrameReader::loop()
 
         const uint32_t interval_ms = 1000 / (fps > 0 ? fps : 30);
 
-        // Capture loop — exits on stop or camera switch
+        // ── Capture loop — exits on stop or camera switch ─────────────────────
         while (m_running && !m_restart) {
-            std::vector<uint8_t> jpegData;
 
-            if (useV4L2) {
-                v4l2_buffer buf{};
-                buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                buf.memory = V4L2_MEMORY_MMAP;
-                if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
-                    std::this_thread::sleep_for(
-                        std::chrono::milliseconds(interval_ms));
-                    continue;
-                }
-                const uint8_t *src =
-                    static_cast<const uint8_t*>(buffers[buf.index].start);
-                jpegData.assign(src, src + buf.bytesused);
-                ioctl(fd, VIDIOC_QBUF, &buf);
-            } else {
+            if (!useV4L2) {
                 std::this_thread::sleep_for(
                     std::chrono::milliseconds(interval_ms));
                 continue;
             }
 
-            // Check streaming enabled
-            {
-                std::lock_guard<std::mutex> lk(m_cfg.mtx);
-                // Future: check if GUI page active
+            // Dequeue buffer
+            v4l2_buffer buf{};
+            buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buf.memory = V4L2_MEMORY_MMAP;
+
+            if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(interval_ms));
+                continue;
             }
 
+            // Copy JPEG data from mmap buffer
+            const uint8_t *src =
+                static_cast<const uint8_t*>(buffers[buf.index].start);
+            std::vector<uint8_t> jpegData(src, src + buf.bytesused);
+
+            // ALWAYS requeue — V4L2 must keep cycling regardless of gate
+            ioctl(fd, VIDIOC_QBUF, &buf);
+
+            // Gate — drop frame if GUI not watching
+            if (!m_cfg.streaming_enabled.load()) continue;
+
+            // Build ScreenEvent
             pfas::ScreenEvent ev;
             ev.set_timestamp_ms(nowMs());
             ev.set_event_type(pfas::VIDEO_FRAME);
@@ -143,27 +151,20 @@ void FrameReader::loop()
             vf->set_height(height);
             vf->set_frame_seq(++m_seq);
             vf->set_jpeg_data(jpegData.data(), jpegData.size());
-
-            // Tag which camera
             vf->set_camera_id(m_cfg.active_camera);
 
-            // Skip frame if GUI not watching
-            if (!m_cfg.streaming_enabled.load()) {
-                //fprintf(stdout, "[FrameReader] stream disabled — dropping frame %u\n",
-                //        m_seq);
-                continue;
-            }
-
             m_cb(ev);
+
             fprintf(stdout, "[FrameReader] frame seq=%u  %zu bytes\n",
                     m_seq, jpegData.size());
-                    }
+        }
 
-        // Cleanup
+        // ── Cleanup V4L2 ──────────────────────────────────────────────────────
         if (useV4L2) {
             v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             ioctl(fd, VIDIOC_STREAMOFF, &type);
-            for (auto &b : buffers) munmap(b.start, b.length);
+            for (auto &b : buffers)
+                munmap(b.start, b.length);
             close(fd);
             fprintf(stdout, "[FrameReader] closed %s\n", device.c_str());
         }

@@ -73,14 +73,32 @@ void HubReceiver::run()
             break;
         }
 
-        case pfas::AI_RESULT: {
-            const auto &ai = ev.ai_result();
-            emit aiResultReceived(
-                QString::fromStdString(ai.model()),
-                QString::fromStdString(ai.label()),
-                ai.confidence(), ai.frame_seq());
-            break;
+    case pfas::AI_RESULT: {
+        const auto &ai = ev.ai_result();
+
+        QList<GuiDetection> dets;
+        for (const auto &d : ai.detections()) {
+            GuiDetection gd;
+            gd.label      = QString::fromStdString(d.label());
+            gd.confidence = d.confidence();
+            gd.x          = d.x();
+            gd.y          = d.y();
+            gd.w          = d.width();
+            gd.h          = d.height();
+            dets.append(gd);
         }
+
+        qDebug() << "[HubReceiver] AI_RESULT label=" << QString::fromStdString(ai.label())
+                << "detections=" << dets.size();
+
+        emit aiResultReceived(
+            QString::fromStdString(ai.model()),
+            QString::fromStdString(ai.label()),
+            ai.confidence(),
+            ai.frame_seq(),
+            dets);
+        break;
+    }
 
         default:
             qDebug() << "[HubReceiver] unhandled type=" << ev.event_type();

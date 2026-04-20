@@ -286,7 +286,8 @@ void Backend::onVideoFrameReceived(uint32_t w, uint32_t h,
 void Backend::onAiResultReceived(QString model, QString label,
                                   double conf, uint32_t frameSeq)
 {
-    Q_UNUSED(model)
+    qDebug() << "[Backend] videoFrame AI="
+             << "videoItem=" << (m_videoItem ? "OK" : "NULL");  // ADD
     m_aiLabel      = label;
     m_aiConfidence = conf;
     m_aiFrameSeq   = frameSeq;

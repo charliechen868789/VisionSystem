@@ -89,17 +89,28 @@ message SystemInfoPayload {
     string uptime       = 4;
 }
 
-message AiResultPayload {
-    string model      = 1;
-    string label      = 2;
-    float  confidence = 3;
-    uint32 frame_seq  = 4;
-}
-
 message VideoFramePayload {
     uint32 width     = 1;
     uint32 height    = 2;
     uint32 frame_seq = 3;
     bytes  jpeg_data = 4;
     int32  camera_id = 5;   // ADD
+}
+
+message Detection {
+    string label      = 1;
+    float  confidence = 2;
+    float  x          = 3;   // normalized 0-1
+    float  y          = 4;
+    float  width      = 5;
+    float  height     = 6;
+    int32  class_id   = 7;
+}
+
+message AiResultPayload {
+    string             model      = 1;
+    float              confidence = 2;
+    uint32             frame_seq  = 3;
+    repeated Detection detections = 4;   // ADD — all detected objects
+    string             label      = 5;   // keep for compat — best detection
 }

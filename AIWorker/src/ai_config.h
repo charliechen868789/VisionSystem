@@ -2,15 +2,20 @@
 #include <string>
 #include <cstdint>
 #include <mutex>
+#include <atomic>      // ADD
+
 
 struct AiConfig {
     // Model
-    std::string model_path        = "/opt/models/general.xmodel";
-    std::string model_type        = "general";
+    std::string model_path        = "/opt/models/yolov4-tiny.weights";
+    std::string model_config      = "/opt/models/yolov4-tiny.cfg";
+    std::string names_path        = "/opt/models/coco.names";
+    std::string model_type        = "yolov4-tiny";
     uint32_t    input_width       = 640;
     uint32_t    input_height      = 480;
     int         ai_model          = 0;
     float       confidence_thresh = 0.6f;
+    int         infer_every_n_frames = 3;
 
     // Feature toggles
     bool        object_detection  = false;
@@ -33,7 +38,7 @@ struct AiConfig {
 
     std::string config_path;
     mutable std::mutex mtx;
-
+    std::atomic<bool>       streaming_enabled{true};  // ADD
     bool load(const std::string &path);
     bool save() const;
     void applyAction(const std::string &action, const std::string &value);

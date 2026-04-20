@@ -9,6 +9,8 @@ pkg_check_modules(ZMQ    REQUIRED libzmq)
 pkg_check_modules(LIBEVENT REQUIRED libevent)        # ADD
 find_package(CURL REQUIRED)                          # ADD
 
+find_package(OpenCV REQUIRED)
+
 # ── Shared proto library ──────────────────────────────────────────────────────
 protobuf_generate_cpp(PROTO_SRC PROTO_HDR proto/screen_event.proto)
 add_library(aeroboard_proto STATIC ${PROTO_SRC} ${PROTO_HDR})
@@ -73,9 +75,10 @@ target_link_libraries(aeroboard-system PRIVATE ${COMMON_LIBS})
 # ── AIWorker ──────────────────────────────────────────────────────────────────
 add_executable(aeroboard-ai
     AIWorker/src/main.cpp
+    AIWorker/src/detector.cpp
     AIWorker/src/ai_config.cpp)
-target_include_directories(aeroboard-ai PRIVATE AIWorker/src ${COMMON_INCLUDES})
-target_link_libraries(aeroboard-ai PRIVATE ${COMMON_LIBS})
+target_include_directories(aeroboard-ai PRIVATE AIWorker/src ${COMMON_INCLUDES} ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(aeroboard-ai PRIVATE ${COMMON_LIBS} ${OpenCV_LIBS})
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install(DIRECTORY config/ DESTINATION /etc/aeroboard)

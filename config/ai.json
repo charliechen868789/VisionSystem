@@ -1,16 +1,19 @@
 {
   "model": {
-    "path":         "/opt/models/general.xmodel",
-    "type":         "general",
-    "input_width":  640,
-    "input_height": 480,
-    "index":        0
+    "path":    "/opt/models/yolov4-tiny.weights",
+    "config":  "/opt/models/yolov4-tiny.cfg",
+    "names":   "/opt/models/coco.names",
+    "type":    "yolov4-tiny",
+    "input_width":  416,
+    "input_height": 416,
+    "index": 0
   },
+  "infer_every_n_frames": 3,
   "subscriber":  { "host": "127.0.0.1", "port": 9001 },
   "publisher":   { "host": "127.0.0.1", "port": 9004 },
   "settings":    { "host": "127.0.0.1", "port": 9011 },
-  "confidence_threshold": 0.6,
-  "object_detection":  false,
+  "confidence_threshold": 0.5,
+  "object_detection":  true,
   "face_detection":    false,
   "tracking_enabled":  false,
   "pose_estimation":   false,

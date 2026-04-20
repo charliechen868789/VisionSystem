@@ -21,7 +21,8 @@ HEADERS += \
     src/backend.h \
     src/hub_publisher.h \
     src/app_config.h \ 
-    src/video_item.h
+    src/video_item.h \
+    src/gui_types.h
 
 INCLUDEPATH += ..//build
 LIBS += -lzmq -lprotobuf -L../build/ -laeroboard_proto

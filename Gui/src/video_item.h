@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QMutex>
 #include <QString>
+#include "gui_types.h"
 
 class VideoItem : public QQuickPaintedItem
 {
@@ -17,7 +18,7 @@ public:
     // Called from Backend — safe to call from any thread
     void setFrame    (const QByteArray &jpeg, uint32_t frameSeq);
     void setAiResult (const QString &label, double confidence, uint32_t frameSeq);
-
+    void setDetections(const QList<GuiDetection> &dets, uint32_t frameSeq);
     void paint(QPainter *painter) override;
 
 signals:
@@ -31,4 +32,5 @@ private:
     QString  m_aiLabel;
     double   m_aiConf     = 0.0;
     bool     m_active     = false;
+    QList<GuiDetection> m_detections;
 };

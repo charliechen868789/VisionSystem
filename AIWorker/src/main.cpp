@@ -6,19 +6,18 @@
 #include <chrono>
 #include <zmq.hpp>
 #include "ai_config.h"
+#include "detector.h"
 #include "screen_event.pb.h"
 
 static volatile bool g_running = true;
 static void sigHandler(int) { g_running = false; }
 
-static uint64_t nowMs()
-{
+static uint64_t nowMs() {
     using namespace std::chrono;
     return (uint64_t)duration_cast<milliseconds>(
         system_clock::now().time_since_epoch()).count();
 }
 
-// ── Settings receiver thread ──────────────────────────────────────────────────
 static void settingsLoop(AiConfig &cfg, std::atomic<bool> &running)
 {
     zmq::context_t ctx(1);
@@ -37,49 +36,14 @@ static void settingsLoop(AiConfig &cfg, std::atomic<bool> &running)
 
     while (running) {
         zmq::message_t msg;
-        auto res = pull.recv(msg);
-        if (!res) continue;
-
+        if (!pull.recv(msg)) continue;
         pfas::ScreenEvent ev;
         if (!ev.ParseFromArray(msg.data(), (int)msg.size())) continue;
         if (ev.event_type() != pfas::CONTROL_ACTION) continue;
-
         const auto &ca = ev.control_action();
         cfg.applyAction(ca.action(), ca.value());
     }
-
-    pull.close();
-    ctx.close();
-}
-
-// ── Check if any AI feature is enabled ───────────────────────────────────────
-static bool anyEnabled(const AiConfig &cfg)
-{
-    return cfg.object_detection  ||
-           cfg.face_detection    ||
-           cfg.tracking_enabled  ||
-           cfg.pose_estimation   ||
-           cfg.anomaly_detection;
-}
-
-// ── Stub inference result ─────────────────────────────────────────────────────
-// Replace this with real Vitis AI / DPU / TensorRT call
-struct InferResult {
-    std::string label;
-    float       confidence;
-    bool        valid;
-};
-
-static InferResult runInference(const AiConfig &cfg,
-                                const std::string &/*jpegData*/)
-{
-    // TODO: load model from cfg.model_path, run on jpegData
-    // Return stub for now:
-    InferResult r;
-    r.label      = "person";
-    r.confidence = 0.92f;
-    r.valid      = true;
-    return r;
+    pull.close(); ctx.close();
 }
 
 int main(int argc, char *argv[])
@@ -102,66 +66,86 @@ int main(int argc, char *argv[])
     signal(SIGINT,  sigHandler);
     signal(SIGTERM, sigHandler);
 
-    // Settings receiver thread
+    // Load detector
+    Detector detector;
+    bool detectorLoaded = detector.load(
+        cfg.model_path,
+        cfg.model_config,   // .cfg file for darknet, empty for ONNX
+        cfg.names_path,
+        cfg.confidence_thresh);
+
+    if (!detectorLoaded)
+        fprintf(stderr, "[AIWorker] detector not loaded — running in passthrough\n");
+
+    // Settings thread
     std::atomic<bool> running{true};
     std::thread settingsThread(settingsLoop, std::ref(cfg), std::ref(running));
 
-    // ZMQ sockets
+    // ZMQ
     zmq::context_t ctx(1);
 
-    // SUB — receive VIDEO_FRAME from VideoWorker
     zmq::socket_t sub(ctx, zmq::socket_type::sub);
     sub.set(zmq::sockopt::subscribe, "");
     sub.set(zmq::sockopt::rcvtimeo, 500);
     sub.connect("tcp://" + cfg.sub_host + ":" + std::to_string(cfg.sub_port));
 
-    // PUB — send AI_RESULT to EventHub
     zmq::socket_t pub(ctx, zmq::socket_type::pub);
     pub.bind("tcp://" + cfg.pub_host + ":" + std::to_string(cfg.pub_port));
 
     fprintf(stdout,
             "[AIWorker] running\n"
-            "  model    : %s (%s)\n"
-            "  sub      : tcp://%s:%u  (VideoWorker frames)\n"
-            "  pub      : tcp://%s:%u  (AI results → EventHub)\n"
-            "  settings : tcp://%s:%u\n",
-            cfg.model_path.c_str(), cfg.model_type.c_str(),
+            "  model    : %s\n"
+            "  sub      : tcp://%s:%u\n"
+            "  pub      : tcp://%s:%u\n",
+            cfg.model_path.c_str(),
             cfg.sub_host.c_str(), cfg.sub_port,
-            cfg.pub_host.c_str(), cfg.pub_port,
-            cfg.settings_host.c_str(), cfg.settings_port);
+            cfg.pub_host.c_str(), cfg.pub_port);
+
+    // Frame skip counter — run inference every N frames to maintain FPS
+    int frameSkip    = 0;
+    int inferEveryN  = cfg.infer_every_n_frames;  // e.g. 3 = infer every 3rd frame
 
     while (g_running) {
-        // Receive frame from VideoWorker
         zmq::message_t msg;
-        auto res = sub.recv(msg);
-        if (!res) continue;   // timeout — check g_running
+        if (!sub.recv(msg)) continue;
 
         pfas::ScreenEvent inEv;
-        if (!inEv.ParseFromArray(msg.data(), (int)msg.size())) {
-            fprintf(stderr, "[AIWorker] proto parse failed\n");
-            continue;
-        }
+        if (!inEv.ParseFromArray(msg.data(), (int)msg.size())) continue;
         if (inEv.event_type() != pfas::VIDEO_FRAME) continue;
 
         const auto &vf = inEv.video_frame();
 
-        // Skip inference if all features disabled
+        // Check if any AI feature enabled
+        bool anyEnabled;
+        bool streamEnabled;
         {
             std::lock_guard<std::mutex> lk(cfg.mtx);
-            if (!anyEnabled(cfg)) continue;
+            anyEnabled    = cfg.object_detection  ||
+                            cfg.face_detection    ||
+                            cfg.tracking_enabled  ||
+                            cfg.pose_estimation   ||
+                            cfg.anomaly_detection;
+            streamEnabled = cfg.streaming_enabled.load();
         }
+
+        // Skip if streaming disabled or no features on
+        if (!streamEnabled || !anyEnabled || !detectorLoaded) continue;
+
+        // Frame skip for performance
+        if (++frameSkip < inferEveryN) continue;
+        frameSkip = 0;
 
         // Run inference
-        InferResult result = runInference(cfg, vf.jpeg_data());
-        if (!result.valid) continue;
+        const std::string &jpegStr = vf.jpeg_data();
+        std::vector<uint8_t> jpegVec(jpegStr.begin(), jpegStr.end());
 
-        // Check confidence threshold
-        {
-            std::lock_guard<std::mutex> lk(cfg.mtx);
-            if (result.confidence < cfg.confidence_thresh) continue;
-        }
+        auto detections = detector.detect(jpegVec,
+                                          cfg.input_width,
+                                          cfg.input_height);
 
-        // Build and publish AI_RESULT
+        if (detections.empty()) continue;
+
+        // Build AI_RESULT event with all detections
         pfas::ScreenEvent outEv;
         outEv.set_timestamp_ms(nowMs());
         outEv.set_event_type(pfas::AI_RESULT);
@@ -171,29 +155,41 @@ int main(int argc, char *argv[])
             std::lock_guard<std::mutex> lk(cfg.mtx);
             ai->set_model(cfg.model_type);
         }
-        ai->set_label(result.label);
-        ai->set_confidence(result.confidence);
         ai->set_frame_seq(vf.frame_seq());
 
+        // Best detection for compat
+        ai->set_label(detections[0].label);
+        ai->set_confidence(detections[0].confidence);
+
+        // All detections as bounding boxes
+        for (const auto &d : detections) {
+            auto *det = ai->add_detections();
+            det->set_label(d.label);
+            det->set_confidence(d.confidence);
+            det->set_x(d.x);
+            det->set_y(d.y);
+            det->set_width(d.w);
+            det->set_height(d.h);
+            det->set_class_id(d.class_id);
+        }
+
+        // Publish
         std::string bytes;
         if (!outEv.SerializeToString(&bytes)) continue;
 
         zmq::message_t out(bytes.data(), bytes.size());
         try {
             pub.send(out, zmq::send_flags::dontwait);
-            fprintf(stdout, "[AIWorker] result: label=%s conf=%.2f frame=%u\n",
-                    ai->label().c_str(), result.confidence, vf.frame_seq());
+            fprintf(stdout, "[AIWorker] %zu detections on frame %u\n",
+                    detections.size(), vf.frame_seq());
         } catch (const zmq::error_t &e) {
-            fprintf(stderr, "[AIWorker] pub send failed: %s\n", e.what());
+            fprintf(stderr, "[AIWorker] pub failed: %s\n", e.what());
         }
     }
 
-    fprintf(stdout, "\n[AIWorker] shutting down\n");
     running = false;
     settingsThread.join();
-    sub.close();
-    pub.close();
-    ctx.close();
+    sub.close(); pub.close(); ctx.close();
     google::protobuf::ShutdownProtobufLibrary();
     return 0;
 }

@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
     // Register types for cross-thread signal delivery  // ADD
     qRegisterMetaType<uint32_t>("uint32_t");            // ADD
     qRegisterMetaType<QByteArray>("QByteArray");        // ADD
+    qRegisterMetaType<QList<GuiDetection>>("QList<GuiDetection>");  // ADD
     std::string configPath = "/media/JetsonNan/Peple_Flow/config/gui_config.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -26,6 +27,7 @@ int main(int argc, char *argv[])
 
     QGuiApplication app(argc, argv);
     qmlRegisterType<VideoItem>("Aeroboard", 1, 0, "VideoItem"); 
+    qRegisterMetaType<QList<GuiDetection>>("QList<GuiDetection>");
     HubPublisher publisher(
         QString::fromStdString(cfg.pub_host), cfg.pub_port,
         QString::fromStdString(cfg.pub_host), cfg.sub_port);

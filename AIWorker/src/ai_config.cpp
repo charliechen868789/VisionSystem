@@ -32,8 +32,9 @@ bool AiConfig::load(const std::string &path)
         json j; f >> j;
 
         if (j.contains("model")) {
-            model_path   = j["model"].value("path",         model_path);
-            model_type   = j["model"].value("type",         model_type);
+            model_path   = j["model"].value("path",        model_path);
+            model_config = j["model"].value("config",      model_config);
+            names_path   = j["model"].value("names",       names_path);
             input_width  = j["model"].value("input_width",  input_width);
             input_height = j["model"].value("input_height", input_height);
             ai_model     = j["model"].value("index",        ai_model);
@@ -112,14 +113,30 @@ bool AiConfig::save() const
 
 void AiConfig::applyAction(const std::string &action, const std::string &value)
 {
-    std::lock_guard<std::mutex> lk(mtx);
+    // atomic — no mutex needed
+    if (action == "stream_enable") {
+        streaming_enabled.store(value == "true");
+        fprintf(stdout, "[AiConfig] streaming %s\n",
+                streaming_enabled.load() ? "ENABLED" : "DISABLED");
+        return;
+    }
 
-    if (action == "ai_model") {
+    std::lock_guard<std::mutex> lk(mtx);  // mutex only for non-atomic fields
+
+    if      (action == "ai_model") {
+        static const char* k_models[] = {
+            "/opt/models/yolov4-tiny.weights",
+            "/opt/models/fast_ai.weights",
+            "/opt/models/high_accuracy.weights",
+            "/opt/models/face_optimized.weights",
+            "/opt/models/edge_lite.weights",
+            "/opt/models/custom_yolo.weights",
+            "/opt/models/pose.weights"
+        };
         int idx = std::stoi(value);
-        if (idx >= 0 && idx < k_modelCount) {
+        if (idx >= 0 && idx < 7) {
             ai_model   = idx;
             model_path = k_models[idx];
-            model_type = k_modelTypes[idx];
         }
     }
     else if (action == "ai_confidence")    confidence_thresh = std::stof(value);

@@ -51,61 +51,94 @@ void VideoItem::setAiResult(const QString &label,
     QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
 }
 
+void VideoItem::setDetections(const QList<GuiDetection> &dets, uint32_t frameSeq)
+{
+    QMutexLocker lk(&m_mutex);
+    m_detections = dets;
+    m_aiFrameSeq = frameSeq;
+    QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
+}
+
 void VideoItem::paint(QPainter *painter)
 {
     QMutexLocker lk(&m_mutex);
+    if (m_frame.isNull()) { /* placeholder */ return; }
 
-    if (m_frame.isNull()) {
-        painter->fillRect(boundingRect().toRect(), QColor("#0d1530"));
-        painter->setPen(QColor("#1e3050"));
-        painter->setFont(QFont("monospace", 12));
-        painter->drawText(boundingRect().toRect(),
-                          Qt::AlignCenter, "No Signal");
-        return;
-    }
-
-    // Draw scaled JPEG frame
     QRect target = boundingRect().toRect();
     if (target.isEmpty()) return;
 
     QImage scaled = m_frame.scaled(target.size(),
                                    Qt::KeepAspectRatio,
                                    Qt::SmoothTransformation);
-
     int xOff = (target.width()  - scaled.width())  / 2;
     int yOff = (target.height() - scaled.height()) / 2;
     painter->drawImage(xOff, yOff, scaled);
 
-    // AI overlay
-    bool aiRecent = (m_frameSeq > 0) &&
-                    (m_frameSeq <= m_aiFrameSeq + 5);
+    // ── Draw detection boxes ──────────────────────────────────────────────────
+    if (!m_detections.isEmpty()) {
+        QFont labelFont("monospace", 10, QFont::Bold);
+        painter->setFont(labelFont);
+        QFontMetrics fm(labelFont);
 
-    if (aiRecent && !m_aiLabel.isEmpty() && m_aiConf > 0.0) {
-        QString tag = QString("%1  %2%")
-                      .arg(m_aiLabel)
-                      .arg((int)(m_aiConf * 100));
+        // Color palette per class
+        static const QColor kColors[] = {
+            {255, 80,  80},   // red
+            {80,  255, 80},   // green
+            {80,  80,  255},  // blue
+            {255, 255, 80},   // yellow
+            {255, 80,  255},  // magenta
+            {80,  255, 255},  // cyan
+            {255, 160, 80},   // orange
+            {160, 80,  255},  // purple
+        };
+        constexpr int kColorCount = 8;
 
-        QFont font("monospace", 11, QFont::Bold);
-        painter->setFont(font);
-        QFontMetrics fm(font);
-        QRect textRect = fm.boundingRect(tag);
-        textRect.adjust(-8, -4, 8, 4);
-        textRect.moveTopLeft(QPoint(xOff + 12, yOff + 12));
+        for (const auto &d : m_detections) {
+            // Map normalized coords to screen coords
+            int bx = xOff + (int)(d.x * scaled.width());
+            int by = yOff + (int)(d.y * scaled.height());
+            int bw = (int)(d.w * scaled.width());
+            int bh = (int)(d.h * scaled.height());
 
-        QColor badgeColor = m_aiConf > 0.8
-                          ? QColor(40, 200, 100, 200)
-                          : QColor(220, 140, 40, 200);
+            // Pick color based on label hash
+            int colorIdx = qHash(d.label) % kColorCount;
+            QColor boxColor = kColors[colorIdx];
 
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(badgeColor);
-        painter->drawRoundedRect(textRect, 4, 4);
-        painter->setPen(Qt::white);
-        painter->drawText(textRect, Qt::AlignCenter, tag);
+            // Draw bounding box
+            painter->setPen(QPen(boxColor, 2));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(bx, by, bw, bh);
+
+            // Label badge
+            QString tag = QString("%1 %2%")
+                          .arg(d.label)
+                          .arg((int)(d.confidence * 100));
+
+            QRect textRect = fm.boundingRect(tag);
+            textRect.adjust(-4, -2, 4, 2);
+            textRect.moveTopLeft(QPoint(bx, by - textRect.height() - 2));
+
+            // Keep badge inside frame
+            if (textRect.top() < yOff)
+                textRect.moveTop(by + 2);
+
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(boxColor.red(),
+                                     boxColor.green(),
+                                     boxColor.blue(), 200));
+            painter->drawRoundedRect(textRect, 3, 3);
+
+            painter->setPen(Qt::black);
+            painter->drawText(textRect, Qt::AlignCenter, tag);
+        }
     }
 
     // Frame counter
-    painter->setPen(QColor(255, 255, 255, 80));
+    painter->setPen(QColor(255, 255, 255, 60));
     painter->setFont(QFont("monospace", 8));
-    painter->drawText(xOff + 8, yOff + scaled.height() - 8,
-                      QString("seq:%1").arg(m_frameSeq));
+    painter->drawText(xOff + 8,
+                      yOff + scaled.height() - 8,
+                      QString("seq:%1  det:%2")
+                          .arg(m_frameSeq)
+                          .arg(m_detections.size()));
 }

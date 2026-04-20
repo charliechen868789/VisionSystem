@@ -4,6 +4,7 @@
 #include <QThread>
 #include <zmq.hpp>
 #include "screen_event.pb.h"
+#include "gui_types.h"
 
 // Receives inbound ScreenEvents from EventHub on a background thread
 class HubReceiver : public QThread
@@ -18,8 +19,9 @@ signals:
     void systemInfoReceived(double cpu, double mem, double temp, QString uptime);
     void videoFrameReceived(uint32_t width, uint32_t height,
                             uint32_t seq, QByteArray jpeg);
-    void aiResultReceived  (QString model, QString label,
-                            double confidence, uint32_t frameSeq);
+    void aiResultReceived(QString model, QString label,
+                        double confidence, uint32_t frameSeq,
+                        QList<GuiDetection> detections);   // ADD detections
 
 protected:
     void run() override;
