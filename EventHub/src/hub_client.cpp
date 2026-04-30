@@ -1,5 +1,6 @@
 #include "hub_client.h"
 #include <cstdio>
+#include "../../common/zmq_compat.h"
 
 HubClient::HubClient(std::vector<std::string> endpoints, EventCallback cb)
     : m_endpoints(std::move(endpoints))
@@ -24,8 +25,8 @@ void HubClient::runLoop()
 {
     zmq::context_t ctx(1);
     zmq::socket_t  sub(ctx, zmq::socket_type::sub);
-    sub.set(zmq::sockopt::subscribe, "");
-    sub.set(zmq::sockopt::rcvtimeo, 500);  // 500ms timeout for clean shutdown
+    zmq_set_subscribe(sub, "");
+    zmq_set_rcvtimeo(sub, 500);  // 500ms timeout for clean shutdown
 
     for (const auto &ep : m_endpoints) {
         try {

@@ -37,7 +37,7 @@ bool AiConfig::load(const std::string &path)
             names_path   = j["model"].value("names",       names_path);
             input_width  = j["model"].value("input_width",  input_width);
             input_height = j["model"].value("input_height", input_height);
-            ai_model     = j["model"].value("index",        ai_model);
+            active_model     = j["model"].value("index",        active_model);
         }
         if (j.contains("subscriber")) {
             sub_host = j["subscriber"].value("host", sub_host);
@@ -87,7 +87,7 @@ bool AiConfig::save() const
         j["model"]["type"]         = model_type;
         j["model"]["input_width"]  = input_width;
         j["model"]["input_height"] = input_height;
-        j["model"]["index"]        = ai_model;
+        j["model"]["index"]        = active_model;
         j["subscriber"]["host"]    = sub_host;
         j["subscriber"]["port"]    = sub_port;
         j["publisher"]["host"]     = pub_host;
@@ -123,7 +123,7 @@ void AiConfig::applyAction(const std::string &action, const std::string &value)
 
     std::lock_guard<std::mutex> lk(mtx);  // mutex only for non-atomic fields
 
-    if      (action == "ai_model") {
+    if      (action == "active_model") {
         static const char* k_models[] = {
             "/opt/models/yolov4-tiny.weights",
             "/opt/models/fast_ai.weights",
@@ -135,7 +135,7 @@ void AiConfig::applyAction(const std::string &action, const std::string &value)
         };
         int idx = std::stoi(value);
         if (idx >= 0 && idx < 7) {
-            ai_model   = idx;
+            active_model   = idx;
             model_path = k_models[idx];
         }
     }
@@ -153,4 +153,20 @@ void AiConfig::applyAction(const std::string &action, const std::string &value)
     fprintf(stdout, "[AiConfig] applied %s = %s\n",
             action.c_str(), value.c_str());
     save();
+}
+
+void AiConfig::setActiveModel(int idx)
+{
+    if (idx < 0 || idx >= (int)models.size()) return;
+    active_model    = idx;
+    const auto &m   = models[idx];
+    model_path      = m.path;
+    model_config    = m.config;
+    names_path      = m.names;
+    model_type      = m.type;
+    model_framework = m.framework;   // ADD
+    input_width     = m.input_width;
+    input_height    = m.input_height;
+    fprintf(stdout, "[AiConfig] active model -> [%d] %s (%s)\n",
+            idx, m.name.c_str(), m.framework.c_str());
 }

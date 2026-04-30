@@ -1,13 +1,128 @@
 {
-  "model": {
-    "path":    "/opt/models/yolov4-tiny.weights",
-    "config":  "/opt/models/yolov4-tiny.cfg",
-    "names":   "/opt/models/coco.names",
-    "type":    "yolov4-tiny",
-    "input_width":  416,
-    "input_height": 416,
-    "index": 0
-  },
+  "models": [
+    {
+      "index": 0,
+      "name":     "YOLOv4-Tiny (Fast)",
+      "path":     "/opt/models/yolov4-tiny.weights",
+      "config":   "/opt/models/yolov4-tiny.cfg",
+      "names":    "/opt/models/coco.names",
+      "type":     "yolov4-tiny",
+      "input_width":  416,
+      "input_height": 416,
+      "framework": "darknet"
+    },
+    {
+      "index": 1,
+      "name":     "YOLOv4 (Accurate)",
+      "path":     "/opt/models/yolov4.weights",
+      "config":   "/opt/models/yolov4.cfg",
+      "names":    "/opt/models/coco.names",
+      "type":     "yolov4",
+      "input_width":  608,
+      "input_height": 608,
+      "framework": "darknet"
+    },
+    {
+      "index": 2,
+      "name":     "YOLOv3 (Balanced)",
+      "path":     "/opt/models/yolov3.weights",
+      "config":   "/opt/models/yolov3.cfg",
+      "names":    "/opt/models/coco.names",
+      "type":     "yolov3",
+      "input_width":  416,
+      "input_height": 416,
+      "framework": "darknet"
+    },
+    {
+      "index": 3,
+      "name":     "SSD MobileNetV2 (Fast)",
+      "path":     "/opt/models/ssd_mobilenet_v2.pb",
+      "config":   "/opt/models/ssd_mobilenet_v2.pbtxt",
+      "names":    "/opt/models/coco_ssd.names",
+      "type":     "ssd_mobilenet",
+      "input_width":  300,
+      "input_height": 300,
+      "framework": "tensorflow"
+    },
+    {
+      "index": 4,
+      "name":     "SSD MobileNetV3 (Edge)",
+      "path":     "/opt/models/ssd_mobilenet_v3.pb",
+      "config":   "/opt/models/ssd_mobilenet_v3.pbtxt",
+      "names":    "/opt/models/coco_ssd.names",
+      "type":     "ssd_mobilenet",
+      "input_width":  320,
+      "input_height": 320,
+      "framework": "tensorflow"
+    },
+    {
+      "index": 5,
+      "name":     "Faster RCNN (High Accuracy)",
+      "path":     "/opt/models/faster_rcnn_inception_v2.pb",
+      "config":   "/opt/models/faster_rcnn_inception_v2.pbtxt",
+      "names":    "/opt/models/coco_ssd.names",
+      "type":     "faster_rcnn",
+      "input_width":  800,
+      "input_height": 600,
+      "framework": "tensorflow"
+    },
+    {
+      "index": 6,
+      "name":     "Face Detection (YOLOv3)",
+      "path":     "/opt/models/yolov3-face.weights",
+      "config":   "/opt/models/yolov3-face.cfg",
+      "names":    "/opt/models/face.names",
+      "type":     "face_yolo",
+      "input_width":  416,
+      "input_height": 416,
+      "framework": "darknet"
+    },
+    {
+      "index": 7,
+      "name":     "Face Detection (OpenCV DNN)",
+      "path":     "/opt/models/res10_300x300_ssd_iter_140000.caffemodel",
+      "config":   "/opt/models/deploy.prototxt",
+      "names":    "/opt/models/face.names",
+      "type":     "face_caffe",
+      "input_width":  300,
+      "input_height": 300,
+      "framework": "caffe"
+    },
+    {
+      "index": 8,
+      "name":     "MobileNet SSD (Caffe)",
+      "path":     "/opt/models/MobileNetSSD_deploy.caffemodel",
+      "config":   "/opt/models/MobileNetSSD_deploy.prototxt",
+      "names":    "/opt/models/voc.names",
+      "type":     "ssd_caffe",
+      "input_width":  300,
+      "input_height": 300,
+      "framework": "caffe"
+    },
+    {
+      "index": 9,
+      "name":     "EfficientDet-D0 (ONNX)",
+      "path":     "/opt/models/efficientdet-d0.onnx",
+      "config":   "",
+      "names":    "/opt/models/coco.names",
+      "type":     "efficientdet",
+      "input_width":  512,
+      "input_height": 512,
+      "framework": "onnx"
+    },
+    {
+      "index": 10,
+      "name":     "Custom YOLO",
+      "path":     "/opt/models/custom_yolo.weights",
+      "config":   "/opt/models/custom_yolo.cfg",
+      "names":    "/opt/models/custom.names",
+      "type":     "custom",
+      "input_width":  416,
+      "input_height": 416,
+      "framework": "darknet"
+    }
+  ],
+  "active_model": 0,
   "infer_every_n_frames": 3,
   "subscriber":  { "host": "127.0.0.1", "port": 9001 },
   "publisher":   { "host": "127.0.0.1", "port": 9004 },

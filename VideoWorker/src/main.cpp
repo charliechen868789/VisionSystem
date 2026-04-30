@@ -20,8 +20,12 @@ static void settingsLoop(VideoConfig &cfg,
 {
     zmq::context_t ctx(1);
     zmq::socket_t  pull(ctx, zmq::socket_type::pull);
+#if CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 7, 0)
     pull.set(zmq::sockopt::rcvtimeo, 500);
-
+#else
+    int timeout = 500;
+    pull.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
     std::string ep = "tcp://" + cfg.settings_host
                    + ":" + std::to_string(cfg.settings_port);
     try {

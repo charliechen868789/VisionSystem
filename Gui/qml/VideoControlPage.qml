@@ -204,14 +204,13 @@ BasePage {
             // SECTION: AI
             // ─────────────────────────────────────────────────────────────────
             SectionLabel { text: "AI  PIPELINE" }
-
             DropdownRow {
                 label: "AI Model"
-                list: ["General Model", "Fast AI", "High Accuracy AI",
-                       "Face Optimized", "Edge Lite", "Custom YOLO",
-                       "Pose Estimation"]
-                selected: backend.aiModel
-                onSelected_changed: function(idx) { backend.aiModel = idx }
+                list:  backend.aiModelList      // dynamic from config
+                selected: backend.activeAiModel
+                onSelected_changed: function(idx) {
+                    backend.setAiModel(idx)
+                }
             }
 
             // Confidence threshold slider

@@ -12,7 +12,15 @@
 static volatile bool g_running = true;
 static void sigHandler(int) { g_running = false; }
 
-static uint64_t nowMs() {
+#if CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 7, 0)
+    #define ZMQ_SET_OPT(sock, opt, val) (sock).set(zmq::sockopt::opt, val)
+#else
+    #define ZMQ_SET_OPT(sock, opt, val) \
+        do { auto _v = (val); (sock).setsockopt(ZMQ_##opt, &_v, sizeof(_v)); } while(0)
+#endif
+
+static uint64_t nowMs()
+{
     using namespace std::chrono;
     return (uint64_t)duration_cast<milliseconds>(
         system_clock::now().time_since_epoch()).count();
@@ -22,8 +30,12 @@ static void settingsLoop(AiConfig &cfg, std::atomic<bool> &running)
 {
     zmq::context_t ctx(1);
     zmq::socket_t  pull(ctx, zmq::socket_type::pull);
+#if CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 7, 0)
     pull.set(zmq::sockopt::rcvtimeo, 500);
-
+#else
+    int timeout = 500;
+    pull.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
     std::string ep = "tcp://" + cfg.settings_host
                    + ":" + std::to_string(cfg.settings_port);
     try {
@@ -43,7 +55,8 @@ static void settingsLoop(AiConfig &cfg, std::atomic<bool> &running)
         const auto &ca = ev.control_action();
         cfg.applyAction(ca.action(), ca.value());
     }
-    pull.close(); ctx.close();
+    pull.close();
+    ctx.close();
 }
 
 int main(int argc, char *argv[])
@@ -66,27 +79,39 @@ int main(int argc, char *argv[])
     signal(SIGINT,  sigHandler);
     signal(SIGTERM, sigHandler);
 
-    // Load detector
-    Detector detector;
-    bool detectorLoaded = detector.load(
-        cfg.model_path,
-        cfg.model_config,   // .cfg file for darknet, empty for ONNX
-        cfg.names_path,
-        cfg.confidence_thresh);
+    // ── Lambda to load detector from current cfg ──────────────────────────────
+    auto loadDetector = [&](Detector &det) -> bool {
+        std::string mpath, mcfg, mnames, mframework;
+        float conf;
+        {
+            std::lock_guard<std::mutex> lk(cfg.mtx);
+            mpath      = cfg.model_path;
+            mcfg       = cfg.model_config;
+            mnames     = cfg.names_path;
+            mframework = cfg.model_framework;
+            conf       = cfg.confidence_thresh;
+        }
+        fprintf(stdout, "[AIWorker] loading model: %s [%s]\n",
+                mpath.c_str(), mframework.c_str());
+        return det.load(mpath, mcfg, mnames, mframework, conf);
+    };
 
+    // Load initial detector
+    Detector detector;
+    bool detectorLoaded = loadDetector(detector);
     if (!detectorLoaded)
-        fprintf(stderr, "[AIWorker] detector not loaded — running in passthrough\n");
+        fprintf(stderr, "[AIWorker] detector not loaded — passthrough mode\n");
 
     // Settings thread
     std::atomic<bool> running{true};
     std::thread settingsThread(settingsLoop, std::ref(cfg), std::ref(running));
 
-    // ZMQ
+    // ZMQ sockets
     zmq::context_t ctx(1);
 
     zmq::socket_t sub(ctx, zmq::socket_type::sub);
-    sub.set(zmq::sockopt::subscribe, "");
-    sub.set(zmq::sockopt::rcvtimeo, 500);
+    ZMQ_SET_OPT(sub, SUBSCRIBE, std::string(""));
+    ZMQ_SET_OPT(sub, RCVTIMEO, 500);
     sub.connect("tcp://" + cfg.sub_host + ":" + std::to_string(cfg.sub_port));
 
     zmq::socket_t pub(ctx, zmq::socket_type::pub);
@@ -94,18 +119,42 @@ int main(int argc, char *argv[])
 
     fprintf(stdout,
             "[AIWorker] running\n"
-            "  model    : %s\n"
-            "  sub      : tcp://%s:%u\n"
-            "  pub      : tcp://%s:%u\n",
+            "  model     : %s\n"
+            "  framework : %s\n"
+            "  sub       : tcp://%s:%u\n"
+            "  pub       : tcp://%s:%u\n"
+            "  skip      : every %d frames\n",
             cfg.model_path.c_str(),
+            cfg.model_framework.c_str(),
             cfg.sub_host.c_str(), cfg.sub_port,
-            cfg.pub_host.c_str(), cfg.pub_port);
+            cfg.pub_host.c_str(), cfg.pub_port,
+            cfg.infer_every_n_frames);
 
-    // Frame skip counter — run inference every N frames to maintain FPS
-    int frameSkip    = 0;
-    int inferEveryN  = cfg.infer_every_n_frames;  // e.g. 3 = infer every 3rd frame
+    int frameSkip   = 0;
+    int inferEveryN = cfg.infer_every_n_frames > 0
+                    ? cfg.infer_every_n_frames : 1;
 
     while (g_running) {
+
+        // ── Reload detector if model switched ─────────────────────────────────
+        if (cfg.model_changed.load()) {
+            cfg.model_changed.store(false);
+            fprintf(stdout, "[AIWorker] model changed — reloading detector\n");
+            Detector newDet;
+            if (loadDetector(newDet)) {
+                detector       = std::move(newDet);
+                detectorLoaded = true;
+                frameSkip      = 0;
+                inferEveryN    = cfg.infer_every_n_frames > 0
+                               ? cfg.infer_every_n_frames : 1;
+                fprintf(stdout, "[AIWorker] detector reloaded OK\n");
+            } else {
+                fprintf(stderr, "[AIWorker] detector reload FAILED\n");
+                detectorLoaded = false;
+            }
+        }
+
+        // ── Receive frame ─────────────────────────────────────────────────────
         zmq::message_t msg;
         if (!sub.recv(msg)) continue;
 
@@ -115,9 +164,8 @@ int main(int argc, char *argv[])
 
         const auto &vf = inEv.video_frame();
 
-        // Check if any AI feature enabled
-        bool anyEnabled;
-        bool streamEnabled;
+        // ── Gate checks ───────────────────────────────────────────────────────
+        bool anyEnabled, streamEnabled;
         {
             std::lock_guard<std::mutex> lk(cfg.mtx);
             anyEnabled    = cfg.object_detection  ||
@@ -125,27 +173,30 @@ int main(int argc, char *argv[])
                             cfg.tracking_enabled  ||
                             cfg.pose_estimation   ||
                             cfg.anomaly_detection;
-            streamEnabled = cfg.streaming_enabled.load();
         }
+        streamEnabled = cfg.streaming_enabled.load();
 
-        // Skip if streaming disabled or no features on
         if (!streamEnabled || !anyEnabled || !detectorLoaded) continue;
 
-        // Frame skip for performance
+        // ── Frame skip ────────────────────────────────────────────────────────
         if (++frameSkip < inferEveryN) continue;
         frameSkip = 0;
 
-        // Run inference
+        // ── Inference ─────────────────────────────────────────────────────────
         const std::string &jpegStr = vf.jpeg_data();
         std::vector<uint8_t> jpegVec(jpegStr.begin(), jpegStr.end());
 
-        auto detections = detector.detect(jpegVec,
-                                          cfg.input_width,
-                                          cfg.input_height);
+        uint32_t iw, ih;
+        {
+            std::lock_guard<std::mutex> lk(cfg.mtx);
+            iw = cfg.input_width;
+            ih = cfg.input_height;
+        }
 
+        auto detections = detector.detect(jpegVec, (int)iw, (int)ih);
         if (detections.empty()) continue;
 
-        // Build AI_RESULT event with all detections
+        // ── Build AI_RESULT ───────────────────────────────────────────────────
         pfas::ScreenEvent outEv;
         outEv.set_timestamp_ms(nowMs());
         outEv.set_event_type(pfas::AI_RESULT);
@@ -156,12 +207,9 @@ int main(int argc, char *argv[])
             ai->set_model(cfg.model_type);
         }
         ai->set_frame_seq(vf.frame_seq());
-
-        // Best detection for compat
         ai->set_label(detections[0].label);
         ai->set_confidence(detections[0].confidence);
 
-        // All detections as bounding boxes
         for (const auto &d : detections) {
             auto *det = ai->add_detections();
             det->set_label(d.label);
@@ -173,23 +221,27 @@ int main(int argc, char *argv[])
             det->set_class_id(d.class_id);
         }
 
-        // Publish
+        // ── Publish ───────────────────────────────────────────────────────────
         std::string bytes;
         if (!outEv.SerializeToString(&bytes)) continue;
 
         zmq::message_t out(bytes.data(), bytes.size());
         try {
             pub.send(out, zmq::send_flags::dontwait);
-            fprintf(stdout, "[AIWorker] %zu detections on frame %u\n",
-                    detections.size(), vf.frame_seq());
+            fprintf(stdout, "[AIWorker] %zu detections frame=%u [%s]\n",
+                    detections.size(), vf.frame_seq(),
+                    ai->model().c_str());
         } catch (const zmq::error_t &e) {
             fprintf(stderr, "[AIWorker] pub failed: %s\n", e.what());
         }
     }
 
+    fprintf(stdout, "\n[AIWorker] shutting down\n");
     running = false;
     settingsThread.join();
-    sub.close(); pub.close(); ctx.close();
+    sub.close();
+    pub.close();
+    ctx.close();
     google::protobuf::ShutdownProtobufLibrary();
     return 0;
 }
