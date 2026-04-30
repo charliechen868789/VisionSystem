@@ -6,8 +6,8 @@ find_package(Protobuf REQUIRED)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(ZMQ    REQUIRED libzmq)
-pkg_check_modules(LIBEVENT REQUIRED libevent)        # ADD
-find_package(CURL REQUIRED)                          # ADD
+pkg_check_modules(LIBEVENT REQUIRED libevent)
+find_package(CURL REQUIRED)
 
 find_package(OpenCV REQUIRED)
 
@@ -79,6 +79,49 @@ add_executable(aeroboard-ai
     AIWorker/src/ai_config.cpp)
 target_include_directories(aeroboard-ai PRIVATE AIWorker/src ${COMMON_INCLUDES} ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(aeroboard-ai PRIVATE ${COMMON_LIBS} ${OpenCV_LIBS})
+
+# ── GUI (Qt5/QML) ─────────────────────────────────────────────────────────────
+find_package(Qt5 COMPONENTS Core Gui Quick QuickControls2 QUIET)
+
+if(Qt5_FOUND)
+    message(STATUS "Qt5 found (${Qt5_VERSION}) — building gui-app")
+
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+
+    add_executable(gui-app
+        Gui/src/main.cpp
+        Gui/src/backend.cpp
+        Gui/src/app_config.cpp
+        Gui/src/hub_publisher.cpp
+        Gui/src/video_item.cpp
+        Gui/resources.qrc)
+
+    target_include_directories(gui-app PRIVATE
+        Gui/src
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${ZMQ_INCLUDE_DIRS}
+        ${Protobuf_INCLUDE_DIRS})
+
+    target_link_libraries(gui-app PRIVATE
+        Qt5::Core
+        Qt5::Gui
+        Qt5::Quick
+        Qt5::QuickControls2
+        aeroboard_proto
+        ${ZMQ_LIBRARIES}
+        ${Protobuf_LIBRARIES})
+
+    # Yocto SDK: tell Qt where to find platform plugins at runtime
+    if(DEFINED ENV{SDKTARGETSYSROOT})
+        target_compile_definitions(gui-app PRIVATE
+            QT_QPA_PLATFORM_PLUGIN_PATH="$ENV{SDKTARGETSYSROOT}/usr/lib/qt5/plugins")
+    endif()
+
+    install(TARGETS gui-app RUNTIME DESTINATION /usr/bin)
+else()
+    message(WARNING "Qt5 not found — skipping gui-app (source SDK env first)")
+endif()
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install(DIRECTORY config/ DESTINATION /etc/aeroboard)

@@ -1,6 +1,7 @@
 #include "hub_publisher.h"
 #include <QDebug>
 #include <chrono>
+#include "../../common/zmq_compat.h"
 
 static uint64_t nowMs() {
     using namespace std::chrono;
@@ -22,8 +23,8 @@ void HubReceiver::stop()
 void HubReceiver::run()
 {
     zmq::socket_t sub(m_ctx, zmq::socket_type::sub);
-    sub.set(zmq::sockopt::subscribe, "");
-    sub.set(zmq::sockopt::rcvtimeo, 500);
+    zmq_set_subscribe(sub, "");
+    zmq_set_rcvtimeo(sub, 500);
 
     // Small delay — lets EventHub finish binding before we connect
     QThread::msleep(500);
