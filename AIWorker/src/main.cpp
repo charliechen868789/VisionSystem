@@ -8,16 +8,10 @@
 #include "ai_config.h"
 #include "detector.h"
 #include "screen_event.pb.h"
+#include "../../common/zmq_compat.h"
 
 static volatile bool g_running = true;
 static void sigHandler(int) { g_running = false; }
-
-#if CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 7, 0)
-    #define ZMQ_SET_OPT(sock, opt, val) (sock).set(zmq::sockopt::opt, val)
-#else
-    #define ZMQ_SET_OPT(sock, opt, val) \
-        do { auto _v = (val); (sock).setsockopt(ZMQ_##opt, &_v, sizeof(_v)); } while(0)
-#endif
 
 static uint64_t nowMs()
 {
@@ -110,8 +104,8 @@ int main(int argc, char *argv[])
     zmq::context_t ctx(1);
 
     zmq::socket_t sub(ctx, zmq::socket_type::sub);
-    ZMQ_SET_OPT(sub, SUBSCRIBE, std::string(""));
-    ZMQ_SET_OPT(sub, RCVTIMEO, 500);
+    zmq_set_subscribe(sub, "");
+    zmq_set_rcvtimeo(sub, 500);
     sub.connect("tcp://" + cfg.sub_host + ":" + std::to_string(cfg.sub_port));
 
     zmq::socket_t pub(ctx, zmq::socket_type::pub);

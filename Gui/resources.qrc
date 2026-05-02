@@ -5,6 +5,9 @@
         <file>qml/BasePage.qml</file>
         <file>qml/ControlHardwarePage.qml</file>
         <file>qml/VideoControlPage.qml</file>
+        <file>qml/ToggleRow.qml</file>
+        <file>qml/DropdownRow.qml</file>
+        <file>qml/SectionLabel.qml</file>
         <file>qml/SettingsPage.qml</file>
         <file>qml/HotSpot.qml</file>
         <file>qml/ConnectionPage.qml</file>
