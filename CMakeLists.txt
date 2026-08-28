@@ -123,6 +123,13 @@ else()
     message(WARNING "Qt5 not found — skipping gui-app (source SDK env first)")
 endif()
 
+# ── Tests ─────────────────────────────────────────────────────────────────────
+option(BUILD_TESTING "Build unit tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # ── Install ───────────────────────────────────────────────────────────────────
 install(DIRECTORY config/ DESTINATION /etc/aeroboard)
 install(TARGETS eventhub aeroboard-video aeroboard-sensor
