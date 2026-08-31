@@ -120,9 +120,20 @@
       "input_width":  416,
       "input_height": 416,
       "framework": "darknet"
+    },
+    {
+      "index": 11,
+      "name":     "YOLOv4-Tiny (TensorRT)",
+      "path":     "/opt/models/yolov4-tiny.engine",
+      "config":   "",
+      "names":    "/opt/models/coco.names",
+      "type":     "yolov4-tiny-trt",
+      "input_width":  416,
+      "input_height": 416,
+      "framework": "tensorrt"
     }
   ],
-  "active_model": 0,
+  "active_model": 11,
   "infer_every_n_frames": 3,
   "subscriber":  { "host": "127.0.0.1", "port": 9001 },
   "publisher":   { "host": "127.0.0.1", "port": 9004 },

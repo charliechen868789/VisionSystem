@@ -9,6 +9,10 @@
         <file>qml/DropdownRow.qml</file>
         <file>qml/SectionLabel.qml</file>
         <file>qml/SettingsPage.qml</file>
+        <file>qml/SystemSettingsPage.qml</file>
+        <file>qml/PerformancePage.qml</file>
+        <file>qml/StatusBar.qml</file>
+        <file>qml/TaskBar.qml</file>
         <file>qml/HotSpot.qml</file>
         <file>qml/ConnectionPage.qml</file>
         <file>qml/AboutPage.qml</file>

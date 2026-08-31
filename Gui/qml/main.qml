@@ -15,6 +15,17 @@ ApplicationWindow {
         initialItem: homePage
     }
 
+    StatusBar {
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+    }
+
+    TaskBar {
+        anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+        canGoBack: stackView.depth > 1
+        onBackRequested: if (stackView.depth > 1) stackView.pop()
+        onHomeRequested: stackView.pop(null)
+    }
+
     // ── HOME ──────────────────────────────────────────────────────────────
     Component {
         id: homePage
@@ -83,6 +94,18 @@ ApplicationWindow {
     // ── SUB-PAGES ─────────────────────────────────────────────────────────
     Component { id: ctrlHwPage;   ControlHardwarePage { onBack: stackView.pop() } }
     Component { id: videoPage;    VideoControlPage    { onBack: stackView.pop() } }
-    Component { id: settingsPage; SettingsPage        { onBack: stackView.pop() } }
-    Component { id: connPage;     ConnectionPage      { onBack: stackView.pop() } }
+    Component {
+        id: settingsPage
+        SettingsPage {
+            onBack: stackView.pop()
+            onSystemSettingsRequested: stackView.push(systemSettingsPage)
+            onInformationRequested: stackView.push(aboutPage)
+            onNetworkInfoRequested: stackView.push(connPage)
+            onPerformanceRequested: stackView.push(performancePage)
+        }
+    }
+    Component { id: connPage;           ConnectionPage      { onBack: stackView.pop() } }
+    Component { id: aboutPage;          AboutPage           { onBack: stackView.pop() } }
+    Component { id: systemSettingsPage; SystemSettingsPage  { onBack: stackView.pop() } }
+    Component { id: performancePage;    PerformancePage     { onBack: stackView.pop() } }
 }

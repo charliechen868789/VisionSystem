@@ -1,12 +1,14 @@
 #include "detector.h"
 #include <fstream>
 #include <cstdio>
+#include <cmath>
 
 static Framework parseFramework(const std::string &s)
 {
     if (s == "tensorflow") return Framework::TENSORFLOW;
     if (s == "caffe")      return Framework::CAFFE;
     if (s == "onnx")       return Framework::ONNX;
+    if (s == "tensorrt")   return Framework::TENSORRT;
     return Framework::DARKNET;
 }
 
@@ -35,6 +37,20 @@ bool Detector::load(const std::string &modelPath,
             fprintf(stderr, "[Detector] cannot open names: %s\n",
                     namesPath.c_str());
         }
+    }
+
+    if (m_framework == Framework::TENSORRT) {
+#ifdef HAVE_TENSORRT
+        if (!loadTensorRT(modelPath)) return false;
+        m_loaded = true;
+        fprintf(stdout, "[Detector] loaded [tensorrt] %s\n", modelPath.c_str());
+        return true;
+#else
+        fprintf(stderr,
+                "[Detector] framework=tensorrt requested but this build has no "
+                "TensorRT support (HAVE_TENSORRT not defined at compile time)\n");
+        return false;
+#endif
     }
 
     // Load model based on framework
@@ -126,6 +142,10 @@ std::vector<DetectionResult> Detector::detect(
         else
             return detectSSDCaffe (frame, inputW, inputH);
     case Framework::ONNX:      return detectONNX     (frame, inputW, inputH);
+#ifdef HAVE_TENSORRT
+    case Framework::TENSORRT: return detectTensorRT (frame, inputW, inputH);
+#endif
+    default: return {};
     }
     return {};
 }
@@ -396,3 +416,271 @@ std::vector<DetectionResult> Detector::detectONNX(cv::Mat &frame,
     }
     return res;
 }
+
+// ── TensorRT (pre-built .engine, GPU inference) ──────────────────────────────
+#ifdef HAVE_TENSORRT
+
+void TrtLogger::log(Severity severity, const char *msg) noexcept
+{
+    if (severity <= Severity::kWARNING)
+        fprintf(stderr, "[TensorRT] %s\n", msg);
+}
+
+void TrtState::reset()
+{
+    if (inputDev) { cudaFree(inputDev); inputDev = nullptr; }
+    for (auto &o : outputs)
+        if (o.dev) cudaFree(o.dev);
+    outputs.clear();
+    delete context; context = nullptr;
+    delete engine;  engine  = nullptr;
+    delete runtime; runtime = nullptr;
+    inputBytes = 0;
+}
+
+TrtState &TrtState::operator=(TrtState &&other) noexcept
+{
+    if (this == &other) return *this;
+    reset();
+    runtime    = other.runtime;    other.runtime    = nullptr;
+    engine     = other.engine;     other.engine     = nullptr;
+    context    = other.context;    other.context    = nullptr;
+    inputDev   = other.inputDev;   other.inputDev   = nullptr;
+    inputBytes = other.inputBytes; other.inputBytes = 0;
+    outputs    = std::move(other.outputs);
+    return *this;
+}
+
+// YOLOv4-tiny's fixed architecture: 2 detection heads, 3 anchors each,
+// matching the [yolo] layers' mask/anchors in yolov4-tiny.cfg. Keyed by
+// output grid size (yolov4-tiny is always square: 13x13 and 26x26 for a
+// 416x416 input). This is specific to yolov4-tiny — a different YOLO
+// variant's engine needs its own anchor table here.
+struct YoloAnchorSet { int gridSize; float anchors[3][2]; };
+static const YoloAnchorSet kYoloV4TinyAnchors[] = {
+    {13, {{81,82}, {135,169}, {344,319}}},   // stride 32 — large objects
+    {26, {{23,27}, {37,58},   {81,82}}},     // stride 16 — small objects
+};
+
+static inline float sigmoidf(float x) { return 1.0f / (1.0f + std::exp(-x)); }
+
+bool Detector::loadTensorRT(const std::string &enginePath)
+{
+    m_trt.reset();
+
+    std::ifstream f(enginePath, std::ios::binary);
+    if (!f.is_open()) {
+        fprintf(stderr, "[Detector] cannot open engine file: %s\n", enginePath.c_str());
+        return false;
+    }
+    std::vector<char> engineData((std::istreambuf_iterator<char>(f)),
+                                  std::istreambuf_iterator<char>());
+    if (engineData.empty()) {
+        fprintf(stderr, "[Detector] engine file is empty: %s\n", enginePath.c_str());
+        return false;
+    }
+
+    m_trt.runtime = nvinfer1::createInferRuntime(m_trtLogger);
+    if (!m_trt.runtime) {
+        fprintf(stderr, "[Detector] createInferRuntime failed\n");
+        return false;
+    }
+
+    m_trt.engine = m_trt.runtime->deserializeCudaEngine(engineData.data(), engineData.size());
+    if (!m_trt.engine) {
+        fprintf(stderr, "[Detector] deserializeCudaEngine failed for %s\n", enginePath.c_str());
+        m_trt.reset();
+        return false;
+    }
+
+    m_trt.context = m_trt.engine->createExecutionContext();
+    if (!m_trt.context) {
+        fprintf(stderr, "[Detector] createExecutionContext failed\n");
+        m_trt.reset();
+        return false;
+    }
+
+    auto volume = [](const nvinfer1::Dims &d) {
+        int64_t v = 1;
+        for (int i = 0; i < d.nbDims; ++i) v *= (d.d[i] > 0 ? d.d[i] : 1);
+        return v;
+    };
+
+    // One input + one-or-more raw YOLO detection-head outputs (a yolov4-tiny
+    // engine converted via yolo_to_onnx.py has 2: [1,255,13,13] and
+    // [1,255,26,26] — undecoded conv outputs, not flattened boxes).
+    int inputIdx = -1;
+    int nbBindings = m_trt.engine->getNbBindings();
+    for (int i = 0; i < nbBindings; ++i)
+        if (m_trt.engine->bindingIsInput(i)) { inputIdx = i; break; }
+
+    if (inputIdx < 0) {
+        fprintf(stderr, "[Detector] no input binding found in engine\n");
+        m_trt.reset();
+        return false;
+    }
+
+    nvinfer1::Dims inDims = m_trt.engine->getBindingDimensions(inputIdx);
+    m_trt.inputBytes = (size_t)volume(inDims) * sizeof(float);
+    if (cudaMalloc(&m_trt.inputDev, m_trt.inputBytes) != cudaSuccess) {
+        fprintf(stderr, "[Detector] cudaMalloc failed for input (%zu bytes)\n", m_trt.inputBytes);
+        m_trt.reset();
+        return false;
+    }
+
+    for (int i = 0; i < nbBindings; ++i) {
+        if (i == inputIdx) continue;
+        nvinfer1::Dims d = m_trt.engine->getBindingDimensions(i);
+        if (d.nbDims != 4) {
+            fprintf(stderr, "[Detector] unexpected output rank %d on binding %d\n", d.nbDims, i);
+            m_trt.reset();
+            return false;
+        }
+        TrtOutputBinding ob;
+        ob.bindingIndex = i;
+        ob.channels = d.d[1];
+        ob.height   = d.d[2];
+        ob.width    = d.d[3];
+        ob.bytes    = (size_t)volume(d) * sizeof(float);
+        if (cudaMalloc(&ob.dev, ob.bytes) != cudaSuccess) {
+            fprintf(stderr, "[Detector] cudaMalloc failed for output binding %d (%zu bytes)\n",
+                    i, ob.bytes);
+            m_trt.reset();
+            return false;
+        }
+        m_trt.outputs.push_back(ob);
+    }
+
+    if (m_trt.outputs.empty()) {
+        fprintf(stderr, "[Detector] engine has no output bindings\n");
+        m_trt.reset();
+        return false;
+    }
+
+    fprintf(stdout, "[Detector] TensorRT engine loaded: %s (%zu output head%s)\n",
+            enginePath.c_str(), m_trt.outputs.size(), m_trt.outputs.size() == 1 ? "" : "s");
+    return true;
+}
+
+std::vector<DetectionResult> Detector::detectTensorRT(cv::Mat &frame, int w, int h)
+{
+    // Same preprocessing as detectYOLO(): 0-1 normalize, BGR->RGB, HWC->CHW.
+    cv::Mat blob;
+    cv::dnn::blobFromImage(frame, blob, 1.0/255.0, cv::Size(w, h),
+                           cv::Scalar(0,0,0), true, false);
+
+    if ((size_t)blob.total() * sizeof(float) != m_trt.inputBytes) {
+        fprintf(stderr,
+                "[Detector] TensorRT input size mismatch: blob=%zu bytes, engine expects %zu\n",
+                (size_t)blob.total() * sizeof(float), m_trt.inputBytes);
+        return {};
+    }
+
+    cudaError_t err = cudaMemcpy(m_trt.inputDev, blob.ptr<float>(), m_trt.inputBytes,
+                                  cudaMemcpyHostToDevice);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "[Detector] cudaMemcpy H2D failed: %s\n", cudaGetErrorString(err));
+        return {};
+    }
+
+    std::vector<void *> bindings(m_trt.engine->getNbBindings(), nullptr);
+    for (auto &o : m_trt.outputs) bindings[o.bindingIndex] = o.dev;
+    for (size_t i = 0; i < bindings.size(); ++i)
+        if (!bindings[i]) bindings[i] = m_trt.inputDev;   // the one remaining slot is the input
+
+    if (!m_trt.context->executeV2(bindings.data())) {
+        fprintf(stderr, "[Detector] TensorRT executeV2 failed\n");
+        return {};
+    }
+
+    std::vector<int>      classIds;
+    std::vector<float>    confs;
+    std::vector<cv::Rect> boxes;
+
+    for (auto &ob : m_trt.outputs) {
+        std::vector<float> data(ob.bytes / sizeof(float));
+        err = cudaMemcpy(data.data(), ob.dev, ob.bytes, cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "[Detector] cudaMemcpy D2H failed: %s\n", cudaGetErrorString(err));
+            continue;
+        }
+
+        const YoloAnchorSet *anchorSet = nullptr;
+        for (auto &a : kYoloV4TinyAnchors)
+            if (a.gridSize == ob.height) { anchorSet = &a; break; }
+        if (!anchorSet) {
+            fprintf(stderr,
+                    "[Detector] no anchor table for %dx%d output — expected a yolov4-tiny "
+                    "engine (13x13 / 26x26 heads)\n", ob.height, ob.width);
+            continue;
+        }
+
+        const int numAnchors = 3;
+        const int numClasses = ob.channels / numAnchors - 5;
+        const int stride     = w / ob.width;   // network input size / grid size
+        const int gh = ob.height, gw = ob.width;
+
+        // Channel-first layout: data[(a*(5+numClasses)+attr)*gh*gw + gy*gw + gx]
+        for (int a = 0; a < numAnchors; ++a) {
+            int base = a * (5 + numClasses) * gh * gw;
+            for (int gy = 0; gy < gh; ++gy) {
+                for (int gx = 0; gx < gw; ++gx) {
+                    int cell = gy * gw + gx;
+                    float tobj = data[base + 4 * gh * gw + cell];
+                    float obj  = sigmoidf(tobj);
+                    if (obj < m_confThresh) continue;
+
+                    int   bestClass = 0;
+                    float bestScore = 0;
+                    for (int c = 0; c < numClasses; ++c) {
+                        float sc = sigmoidf(data[base + (5 + c) * gh * gw + cell]);
+                        if (sc > bestScore) { bestScore = sc; bestClass = c; }
+                    }
+                    float conf = obj * bestScore;
+                    if (conf < m_confThresh) continue;
+
+                    float tx = data[base + 0 * gh * gw + cell];
+                    float ty = data[base + 1 * gh * gw + cell];
+                    float tw = data[base + 2 * gh * gw + cell];
+                    float th = data[base + 3 * gh * gw + cell];
+
+                    float bx = (sigmoidf(tx) + gx) * stride;
+                    float by = (sigmoidf(ty) + gy) * stride;
+                    float bw = std::exp(tw) * anchorSet->anchors[a][0];
+                    float bh = std::exp(th) * anchorSet->anchors[a][1];
+
+                    classIds.push_back(bestClass);
+                    confs.push_back(conf);
+                    boxes.push_back({(int)(bx - bw / 2), (int)(by - bh / 2),
+                                      (int)bw, (int)bh});
+                }
+            }
+        }
+    }
+
+    std::vector<int> idx;
+    cv::dnn::NMSBoxes(boxes, confs, m_confThresh, m_nmsThresh, idx);
+
+    std::vector<DetectionResult> res;
+    for (int i : idx) {
+        const auto &b = boxes[i];
+        DetectionResult r;
+        r.class_id   = classIds[i];
+        r.label      = r.class_id < (int)m_classes.size()
+                       ? m_classes[r.class_id] : "unknown";
+        r.confidence = confs[i];
+        // Boxes were decoded in network-input pixel space (w x h); normalize
+        // by that, not the source frame size — the frame was already resized
+        // to the network's input dimensions for this pass.
+        r.x = std::max(0.0f, (float)b.x / w);
+        r.y = std::max(0.0f, (float)b.y / h);
+        r.w = std::min(1.0f, (float)b.width  / w);
+        r.h = std::min(1.0f, (float)b.height / h);
+        res.push_back(r);
+        fprintf(stdout, "[Detector/TensorRT] %s %.2f\n",
+                r.label.c_str(), r.confidence);
+    }
+    return res;
+}
+
+#endif // HAVE_TENSORRT

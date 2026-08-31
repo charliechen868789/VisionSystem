@@ -83,10 +83,13 @@ message SensorPayload {
 }
 
 message SystemInfoPayload {
-    float  cpu_percent  = 1;
-    float  mem_percent  = 2;
-    float  temp_celsius = 3;
-    string uptime       = 4;
+    float  cpu_percent         = 1;
+    float  mem_percent         = 2;
+    float  temp_celsius        = 3;
+    string uptime               = 4;
+    float  gpu_percent         = 5;
+    float  wifi_signal_percent = 6;
+    bool   wifi_connected      = 7;
 }
 
 message VideoFramePayload {

@@ -39,8 +39,9 @@ class Backend : public QObject
     // Connection
     Q_PROPERTY(QString ethIp    READ ethIp    NOTIFY ethIpChanged)
     Q_PROPERTY(bool    ethUp    READ ethUp    NOTIFY ethUpChanged)
-    Q_PROPERTY(bool    wifiUp   READ wifiUp   NOTIFY wifiUpChanged)
-    Q_PROPERTY(QString wifiIp   READ wifiIp   NOTIFY wifiIpChanged)
+    Q_PROPERTY(bool    wifiUp     READ wifiUp     NOTIFY wifiUpChanged)
+    Q_PROPERTY(QString wifiIp     READ wifiIp     NOTIFY wifiIpChanged)
+    Q_PROPERTY(double  wifiSignal READ wifiSignal NOTIFY wifiSignalChanged)
     Q_PROPERTY(bool    cmdPort  READ cmdPort  NOTIFY cmdPortChanged)
     Q_PROPERTY(bool    dataPort READ dataPort NOTIFY dataPortChanged)
 
@@ -48,6 +49,7 @@ class Backend : public QObject
     Q_PROPERTY(double  temperature READ temperature NOTIFY temperatureChanged)
     Q_PROPERTY(double  cpuPercent  READ cpuPercent  NOTIFY cpuPercentChanged)
     Q_PROPERTY(double  memPercent  READ memPercent  NOTIFY memPercentChanged)
+    Q_PROPERTY(double  gpuPercent  READ gpuPercent  NOTIFY gpuPercentChanged)
     Q_PROPERTY(QString uptime      READ uptime      NOTIFY uptimeChanged)
 
     // AI
@@ -98,8 +100,9 @@ public:
     // Connection
     QString ethIp()    const { return m_ethIp; }
     bool    ethUp()    const { return m_ethUp; }
-    bool    wifiUp()   const { return m_wifiUp; }
-    QString wifiIp()   const { return m_wifiIp; }
+    bool    wifiUp()     const { return m_wifiUp; }
+    QString wifiIp()     const { return m_wifiIp; }
+    double  wifiSignal() const { return m_wifiSignal; }
     bool    cmdPort()  const { return m_cmdPort; }
     bool    dataPort() const { return m_dataPort; }
 
@@ -107,6 +110,7 @@ public:
     double  temperature() const { return m_temperature; }
     double  cpuPercent()  const { return m_cpuPercent; }
     double  memPercent()  const { return m_memPercent; }
+    double  gpuPercent()  const { return m_gpuPercent; }
     QString uptime()      const { return m_uptime; }
 
     // AI
@@ -148,7 +152,8 @@ public slots:
     void switchCamera(int idx);            // ADD
 private slots:
     void onSystemInfoReceived(double cpu, double mem,
-                              double temp, QString uptime);
+                              double temp, QString uptime, double gpu,
+                              double wifiSignal, bool wifiConnected);
     void onVideoFrameReceived(uint32_t w, uint32_t h,
                               uint32_t seq, QByteArray jpeg);
     void onAiResultReceived  (QString model, QString label,
@@ -169,6 +174,7 @@ signals:
     void cmdPortChanged();     void dataPortChanged();
     void temperatureChanged(); void cpuPercentChanged();
     void memPercentChanged();  void uptimeChanged();
+    void gpuPercentChanged();  void wifiSignalChanged();
     void aiModelChanged();     void aiConfidenceChanged();
     void objectDetectionChanged(); void faceDetectionChanged();
     void trackingEnabledChanged(); void poseEstimationChanged();
@@ -211,6 +217,8 @@ private:
     double  m_temperature = 0.0;
     double  m_cpuPercent  = 0.0;
     double  m_memPercent  = 0.0;
+    double  m_gpuPercent  = 0.0;
+    double  m_wifiSignal  = 0.0;
     QString m_uptime      = "—";
 
     // AI

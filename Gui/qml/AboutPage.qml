@@ -16,67 +16,112 @@ BasePage {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 420
+            Layout.preferredHeight: 460
             color: "#0d1530"
             radius: 8
             border.color: "#1e3050"
 
             ColumnLayout {
-                anchors { fill: parent; margins: 20 }
-                spacing: 15
+                anchors { fill: parent; margins: 24 }
+                spacing: 18
 
                 Text {
                     text: "Hardware Details"
-                    color: "#8aaed4"; font.pixelSize: 18
+                    color: "#8aaed4"; font.pixelSize: 24
                     renderType: Text.NativeRendering
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Device:";      color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
-                    Text { text: "Jetson Nano";  color: "#ffffff"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text { text: "Device:";      color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "Jetson Nano";  color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Kernel:";         color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
-                    Text { text: "4.9.253-tegra";   color: "#ffffff"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text { text: "Kernel:";         color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "4.9.253-tegra";   color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Status:";       color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
-                    Text { text: "Operational";   color: "#ffffff"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text { text: "Status:";       color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "Operational";   color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Temperature:";  color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
+                    Text { text: "Temperature:";  color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
                     Text {
                         text: backend.temperature.toFixed(1) + " °C"
                         color: backend.temperature > 70 ? "#ff4444" : "#ffffff"
-                        font.pixelSize: 16; font.weight: Font.DemiBold
+                        font.pixelSize: 22; font.weight: Font.DemiBold
                     }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "CPU:";  color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
+                    Text { text: "CPU:";  color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
                     Text {
                         text: backend.cpuPercent.toFixed(1) + " %"
                         color: backend.cpuPercent > 85 ? "#ff4444" : "#ffffff"
-                        font.pixelSize: 16; font.weight: Font.DemiBold
+                        font.pixelSize: 22; font.weight: Font.DemiBold
                     }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Memory:"; color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
+                    Text { text: "Memory:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
                     Text {
                         text: backend.memPercent.toFixed(1) + " %"
                         color: backend.memPercent > 90 ? "#ff4444" : "#ffffff"
-                        font.pixelSize: 16; font.weight: Font.DemiBold
+                        font.pixelSize: 22; font.weight: Font.DemiBold
                     }
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "Uptime:"; color: "#c0d0e8"; font.pixelSize: 16; Layout.fillWidth: true }
-                    Text { text: backend.uptime; color: "#ffffff"; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text { text: "Uptime:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: backend.uptime; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 280
+            color: "#0d1530"
+            radius: 8
+            border.color: "#1e3050"
+
+            ColumnLayout {
+                anchors { fill: parent; margins: 24 }
+                spacing: 18
+
+                Text {
+                    text: "Software Version"
+                    color: "#8aaed4"; font.pixelSize: 24
+                    renderType: Text.NativeRendering
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "Firmware:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: backend.firmwareVersion; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "OpenCV:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "4.1.0"; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "TensorRT:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "8.2.1"; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "cuDNN:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "8.2.1.32"; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: "CUDA:"; color: "#c0d0e8"; font.pixelSize: 22; Layout.fillWidth: true }
+                    Text { text: "10.2"; color: "#ffffff"; font.pixelSize: 22; font.weight: Font.DemiBold }
                 }
             }
         }

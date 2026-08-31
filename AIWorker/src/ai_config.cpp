@@ -31,14 +31,26 @@ bool AiConfig::load(const std::string &path)
     try {
         json j; f >> j;
 
-        if (j.contains("model")) {
-            model_path   = j["model"].value("path",        model_path);
-            model_config = j["model"].value("config",      model_config);
-            names_path   = j["model"].value("names",       names_path);
-            input_width  = j["model"].value("input_width",  input_width);
-            input_height = j["model"].value("input_height", input_height);
-            active_model     = j["model"].value("index",        active_model);
+        models.clear();
+        if (j.contains("models")) {
+            for (auto &jm : j["models"]) {
+                ModelEntry m;
+                m.index        = jm.value("index",        m.index);
+                m.name         = jm.value("name",         m.name);
+                m.path         = jm.value("path",         m.path);
+                m.config       = jm.value("config",       m.config);
+                m.names        = jm.value("names",        m.names);
+                m.type         = jm.value("type",         m.type);
+                m.framework    = jm.value("framework",    m.framework);
+                m.input_width  = jm.value("input_width",  m.input_width);
+                m.input_height = jm.value("input_height", m.input_height);
+                models.push_back(m);
+            }
         }
+        active_model = j.value("active_model", active_model);
+        if (active_model >= 0 && active_model < (int)models.size())
+            setActiveModel(active_model);
+
         if (j.contains("subscriber")) {
             sub_host = j["subscriber"].value("host", sub_host);
             sub_port = j["subscriber"].value("port", sub_port);
@@ -82,18 +94,14 @@ bool AiConfig::save() const
 {
     if (config_path.empty()) return false;
     try {
+        // Read the file back first so the "models" array (and anything else
+        // this struct doesn't mirror) survives — only the fields applyAction()
+        // can actually change at runtime get rewritten here.
         json j;
-        j["model"]["path"]         = model_path;
-        j["model"]["type"]         = model_type;
-        j["model"]["input_width"]  = input_width;
-        j["model"]["input_height"] = input_height;
-        j["model"]["index"]        = active_model;
-        j["subscriber"]["host"]    = sub_host;
-        j["subscriber"]["port"]    = sub_port;
-        j["publisher"]["host"]     = pub_host;
-        j["publisher"]["port"]     = pub_port;
-        j["settings"]["host"]      = settings_host;
-        j["settings"]["port"]      = settings_port;
+        std::ifstream in(config_path);
+        if (in.is_open()) in >> j;
+
+        j["active_model"]          = active_model;
         j["confidence_threshold"]  = confidence_thresh;
         j["object_detection"]      = object_detection;
         j["face_detection"]        = face_detection;
@@ -124,19 +132,10 @@ void AiConfig::applyAction(const std::string &action, const std::string &value)
     std::lock_guard<std::mutex> lk(mtx);  // mutex only for non-atomic fields
 
     if      (action == "active_model") {
-        static const char* k_models[] = {
-            "/opt/models/yolov4-tiny.weights",
-            "/opt/models/fast_ai.weights",
-            "/opt/models/high_accuracy.weights",
-            "/opt/models/face_optimized.weights",
-            "/opt/models/edge_lite.weights",
-            "/opt/models/custom_yolo.weights",
-            "/opt/models/pose.weights"
-        };
         int idx = std::stoi(value);
-        if (idx >= 0 && idx < 7) {
-            active_model   = idx;
-            model_path = k_models[idx];
+        if (idx >= 0 && idx < (int)models.size()) {
+            setActiveModel(idx);
+            model_changed.store(true);
         }
     }
     else if (action == "ai_confidence")    confidence_thresh = std::stof(value);

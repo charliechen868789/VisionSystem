@@ -128,11 +128,11 @@ void Backend::setLowPower(bool v)
 
 void Backend::scanNetwork()
 {
+    // wifiUp/wifiSignal now come from real telemetry (SystemWorker reading
+    // /proc/net/wireless via onSystemInfoReceived) rather than being faked
+    // here, so this just requests a fresh read instead of guessing.
     qDebug() << "[Backend] scanNetwork()";
-    m_wifiUp = !m_wifiUp;
-    m_wifiIp = m_wifiUp ? QStringLiteral("192.168.1.55") : QStringLiteral("—");
-    emit wifiUpChanged();
-    emit wifiIpChanged();
+    requestSystemInfo();
 }
 
 // ADD to existing backend.cpp — everything else unchanged
@@ -144,14 +144,19 @@ void Backend::requestSystemInfo()
 }
 
 void Backend::onSystemInfoReceived(double cpu, double mem,
-                                   double temp, QString uptime)
+                                   double temp, QString uptime, double gpu,
+                                   double wifiSignal, bool wifiConnected)
 {
     qDebug() << "[Backend] systemInfo cpu=" << cpu
-             << "mem=" << mem << "temp=" << temp;
+             << "mem=" << mem << "gpu=" << gpu << "temp=" << temp
+             << "wifi=" << wifiSignal << (wifiConnected ? "connected" : "disconnected");
 
     if (m_temperature != temp)  { m_temperature = temp;   emit temperatureChanged(); }
     if (m_cpuPercent  != cpu)   { m_cpuPercent  = cpu;    emit cpuPercentChanged();  }
     if (m_memPercent  != mem)   { m_memPercent  = mem;    emit memPercentChanged();  }
+    if (m_gpuPercent  != gpu)   { m_gpuPercent  = gpu;    emit gpuPercentChanged();  }
+    if (m_wifiSignal  != wifiSignal) { m_wifiSignal = wifiSignal; emit wifiSignalChanged(); }
+    if (m_wifiUp      != wifiConnected) { m_wifiUp = wifiConnected; emit wifiUpChanged(); }
     if (m_uptime      != uptime){ m_uptime      = uptime; emit uptimeChanged();      }
 }
 

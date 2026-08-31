@@ -16,7 +16,8 @@ public:
     void stop();
 
 signals:
-    void systemInfoReceived(double cpu, double mem, double temp, QString uptime);
+    void systemInfoReceived(double cpu, double mem, double temp, QString uptime, double gpu,
+                            double wifiSignal, bool wifiConnected);
     void videoFrameReceived(uint32_t width, uint32_t height,
                             uint32_t seq, QByteArray jpeg);
     void aiResultReceived(QString model, QString label,
@@ -54,7 +55,8 @@ public:
     void publishControlAction(const QString &action, const QString &value);
 
 signals:
-    void systemInfoReceived(double cpu, double mem, double temp, QString uptime);
+    void systemInfoReceived(double cpu, double mem, double temp, QString uptime, double gpu,
+                            double wifiSignal, bool wifiConnected);
     void videoFrameReceived(uint32_t width, uint32_t height,
                             uint32_t seq, QByteArray jpeg);
     void aiResultReceived  (QString model, QString label,

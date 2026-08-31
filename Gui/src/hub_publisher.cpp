@@ -59,7 +59,10 @@ void HubReceiver::run()
             emit systemInfoReceived(
                 si.cpu_percent(), si.mem_percent(),
                 si.temp_celsius(),
-                QString::fromStdString(si.uptime()));
+                QString::fromStdString(si.uptime()),
+                si.gpu_percent(),
+                si.wifi_signal_percent(),
+                si.wifi_connected());
             break;
         }
 

@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 3.16)
 project(aeroboard LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
+# Lets headers/libs staged outside the SDK sysroot (e.g. packages not yet
+# added to the Yocto SDK's own toolchain task) be found by find_path()/
+# find_library() below, without needing write access to the sysroot itself.
+# Unused unless explicitly passed at configure time.
+if(DEFINED EXTRA_FIND_ROOT_PATH)
+    list(APPEND CMAKE_FIND_ROOT_PATH "${EXTRA_FIND_ROOT_PATH}")
+endif()
+
 find_package(Protobuf REQUIRED)
 find_package(PkgConfig REQUIRED)
 
@@ -79,6 +87,23 @@ add_executable(aeroboard-ai
     AIWorker/src/ai_config.cpp)
 target_include_directories(aeroboard-ai PRIVATE AIWorker/src ${COMMON_INCLUDES} ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(aeroboard-ai PRIVATE ${COMMON_LIBS} ${OpenCV_LIBS})
+
+# TensorRT (optional — enables Detector's GPU engine backend for
+# framework=tensorrt models). Not present on the x86 CI sysroot, so this
+# quietly falls back to the existing OpenCV-DNN-only build there.
+find_path(TENSORRT_INCLUDE_DIR NvInfer.h)
+find_library(TENSORRT_LIBRARY nvinfer)
+find_path(CUDA_INCLUDE_DIR cuda_runtime_api.h)
+find_library(CUDART_LIBRARY cudart)
+
+if(TENSORRT_INCLUDE_DIR AND TENSORRT_LIBRARY AND CUDA_INCLUDE_DIR AND CUDART_LIBRARY)
+    message(STATUS "TensorRT found (${TENSORRT_LIBRARY}) — enabling Detector TensorRT backend")
+    target_compile_definitions(aeroboard-ai PRIVATE HAVE_TENSORRT)
+    target_include_directories(aeroboard-ai PRIVATE ${TENSORRT_INCLUDE_DIR} ${CUDA_INCLUDE_DIR})
+    target_link_libraries(aeroboard-ai PRIVATE ${TENSORRT_LIBRARY} ${CUDART_LIBRARY})
+else()
+    message(STATUS "TensorRT not found — Detector TensorRT backend disabled")
+endif()
 
 # ── GUI (Qt5/QML) ─────────────────────────────────────────────────────────────
 find_package(Qt5 COMPONENTS Core Gui Quick QuickControls2 QUIET)

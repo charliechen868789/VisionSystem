@@ -42,7 +42,11 @@ static void settingsLoop(AiConfig &cfg, std::atomic<bool> &running)
 
     while (running) {
         zmq::message_t msg;
-        if (!pull.recv(msg)) continue;
+        try {
+            if (!pull.recv(msg)) continue;
+        } catch (const zmq::error_t &) {
+            continue;   // interrupted by a signal (e.g. shutdown) — recheck running
+        }
         pfas::ScreenEvent ev;
         if (!ev.ParseFromArray(msg.data(), (int)msg.size())) continue;
         if (ev.event_type() != pfas::CONTROL_ACTION) continue;
@@ -150,7 +154,11 @@ int main(int argc, char *argv[])
 
         // ── Receive frame ─────────────────────────────────────────────────────
         zmq::message_t msg;
-        if (!sub.recv(msg)) continue;
+        try {
+            if (!sub.recv(msg)) continue;
+        } catch (const zmq::error_t &) {
+            continue;   // interrupted by a signal (e.g. shutdown) — recheck g_running
+        }
 
         pfas::ScreenEvent inEv;
         if (!inEv.ParseFromArray(msg.data(), (int)msg.size())) continue;
@@ -159,7 +167,7 @@ int main(int argc, char *argv[])
         const auto &vf = inEv.video_frame();
 
         // ── Gate checks ───────────────────────────────────────────────────────
-        bool anyEnabled, streamEnabled;
+        bool anyEnabled;
         {
             std::lock_guard<std::mutex> lk(cfg.mtx);
             anyEnabled    = cfg.object_detection  ||
@@ -168,9 +176,8 @@ int main(int argc, char *argv[])
                             cfg.pose_estimation   ||
                             cfg.anomaly_detection;
         }
-        streamEnabled = cfg.streaming_enabled.load();
 
-        if (!streamEnabled || !anyEnabled || !detectorLoaded) continue;
+        if (!anyEnabled || !detectorLoaded) continue;
 
         // ── Frame skip ────────────────────────────────────────────────────────
         if (++frameSkip < inferEveryN) continue;
