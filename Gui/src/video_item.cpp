@@ -7,7 +7,7 @@
 VideoItem::VideoItem(QQuickItem *parent)
     : QQuickPaintedItem(parent)
 {
-    setRenderTarget(QQuickPaintedItem::FramebufferObject);
+    setRenderTarget(QQuickPaintedItem::Image);
     setAntialiasing(false);
 }
 

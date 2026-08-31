@@ -58,7 +58,7 @@ static float readTemp()
 int main(int argc, char *argv[])
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-    std::string configPath = "/media/JetsonNan/Peple_Flow/config/system.json";
+    std::string configPath = "/etc/aeroboard/system.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];

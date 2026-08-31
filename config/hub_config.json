@@ -14,7 +14,7 @@
     "enabled": true
   },
   "log": {
-    "path": "/media/JetsonNan/eventhub.log"
+    "path": "/var/log/aeroboard/eventhub.log"
   },
   "gpio_map": {
     "gpio0":      288,
@@ -27,29 +27,29 @@
       "enabled": true,
       "pub_port": 9001,
       "settings_port": 9010,
-      "config": "/media/JetsonNan/Peple_Flow/config/video.json",
-      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-video"
+      "config": "/etc/aeroboard/video.json",
+      "binary": "/usr/bin/aeroboard-video"
     },
     "sensor": {
       "enabled": false,
       "pub_port": 9002,
       "settings_port": 0,
-      "config": "/media/JetsonNan/Peple_Flow/config/sensor.json",
-      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-sensor"
+      "config": "/etc/aeroboard/sensor.json",
+      "binary": "/usr/bin/aeroboard-sensor"
     },
     "system": {
       "enabled": true,
       "pub_port": 9003,
       "settings_port": 0,
-      "config": "/media/JetsonNan/Peple_Flow/config/system.json",
-      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-system"
+      "config": "/etc/aeroboard/system.json",
+      "binary": "/usr/bin/aeroboard-system"
     },
     "ai": {
       "enabled": true,
       "pub_port": 9004,
       "settings_port": 9011,
-      "config": "/media/JetsonNan/Peple_Flow/config/ai.json",
-      "binary": "/media/JetsonNan/Peple_Flow/build/aeroboard-ai"
+      "config": "/etc/aeroboard/ai.json",
+      "binary": "/usr/bin/aeroboard-ai"
     }
   }
 }

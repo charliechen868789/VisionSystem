@@ -7,7 +7,7 @@ ApplicationWindow {
     width:  1280
     height: 720
     title:  "System Launcher"
-    color:  "#000000"
+    color:  "transparent"
 
     StackView {
         id: stackView

@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<uint32_t>("uint32_t");            // ADD
     qRegisterMetaType<QByteArray>("QByteArray");        // ADD
     qRegisterMetaType<QList<GuiDetection>>("QList<GuiDetection>");  // ADD
-    std::string configPath = "/media/JetsonNan/Peple_Flow/config/gui_config.json";
+    std::string configPath = "/etc/aeroboard/gui_config.json";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--config" && i+1 < argc) configPath = argv[++i];

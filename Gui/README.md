@@ -48,9 +48,18 @@ qmake && make -j4
 ./gui-app
 
 # Headless / EGLFS (recommended for production on Nano)
-QT_QPA_PLATFORM=eglfs ./gui-app
+# Plain `eglfs` defaults to the DRM/KMS backend, which fails with
+# "Could not find DRM device!" on boards with no /dev/dri (this board's
+# L4T display driver is the legacy tegra_dc stack, not DRM/KMS). NVIDIA's
+# Tegra EGL device stack is present instead (libEGL_nvidia.so.0,
+# eglfs_kms_egldevice plugin, EGL_EXT_platform_device) — select it
+# explicitly to get real GPU-accelerated rendering:
+QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_kms_egldevice ./gui-app
 
-# Framebuffer fallback
+# Framebuffer fallback (software rendering — do NOT use if the above
+# works; this SDK's Qt Quick software backend has a scenegraph bug where
+# the dirty-region tracker always collapses to empty and nothing ever
+# gets painted, confirmed even with a trivial one-Rectangle QML file)
 QT_QPA_PLATFORM=linuxfb QT_QPA_FB=/dev/fb0 ./gui-app
 ```
 
@@ -82,6 +91,7 @@ After=graphical.target
 [Service]
 User=nvidia
 Environment=QT_QPA_PLATFORM=eglfs
+Environment=QT_QPA_EGLFS_INTEGRATION=eglfs_kms_egldevice
 ExecStart=/home/nvidia/gui-app/gui-app
 Restart=on-failure
 
